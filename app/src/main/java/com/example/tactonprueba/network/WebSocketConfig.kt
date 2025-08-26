@@ -3,18 +3,42 @@ package com.example.tactonprueba.network
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import com.example.tactonprueba.utils.MarkerData
+import com.example.tactonprueba.utils.placeMarker
+import com.google.gson.Gson
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.FeatureCollection
 import com.mapbox.geojson.Point
-import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
 import com.mapbox.maps.extension.style.expressions.dsl.generated.get
 import com.mapbox.maps.extension.style.layers.addLayer
 import com.mapbox.maps.extension.style.layers.generated.SymbolLayer
 import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import kotlinx.coroutines.*
 import kotlin.math.min
+
+// Posición de usuario
+data class PositionMessage(
+    val type: String,
+    val user: String,
+    val point: Point,
+    val bearing: Double? = null
+)
+
+// Creación de marcador
+data class MarkerMessage(
+    val type: String = "marker_create",
+    val user: String,
+    val id: Int,
+    val point: Point,
+    val icon: String? = null, // "NORMAL", "MEDEVAC", "TUTELA"...
+    val label: String? = null
+)
+
 
 class WebSocketConfig(
     private val remoteUsers: MutableMap<String, Pair<Point, Double>>,
@@ -23,7 +47,53 @@ class WebSocketConfig(
 ) {
     private val animationJobs = mutableMapOf<String, Job>()
 
-    fun handleIncomingMessage(msg: PositionMessage) {
+    // Manejar mensajes entrantes
+    fun handleIncomingRawMessage(
+        rawMsg: String,
+        pointAnnotationManager: PointAnnotationManager?,
+        defaultMarkerBitmap: Bitmap,
+        markerList: SnapshotStateList<MarkerData>,
+        onMarkerClicked: (PointAnnotation) -> Unit
+    ) {
+        try {
+            val gson = Gson()
+            val base = gson.fromJson(rawMsg, Map::class.java) // miramos solo el "type"
+
+            when (base["type"]) {
+                "position" -> {
+                    val msg = gson.fromJson(rawMsg, PositionMessage::class.java)
+                    handleIncomingLocation(msg)   // 👈 aquí reutilizas tu función ya hecha
+
+                }
+
+                "marker_create" -> {
+                    val msg = gson.fromJson(rawMsg, MarkerMessage::class.java)
+                    val point = Point.fromLngLat(msg.point.longitude(), msg.point.latitude())
+
+                    // seleccionar icono según tipo (aquí de momento genérico)
+                    Log.d("WebSocket", "📩 Mensaje bruto: ")
+                    val bmp = defaultMarkerBitmap
+
+                    pointAnnotationManager?.let { mgr ->
+                        placeMarker(
+                            mgr = mgr,
+                            bmp = bmp,
+                            point = point,
+                            id = msg.id,
+                            distance = 0.0,
+                            markerList = markerList,
+                            onMarkerClicked = onMarkerClicked
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("WebSocketConfig", "❌ Error parseando mensaje: ${e.message}")
+        }
+    }
+
+    // Manejar mensajes de posición
+    fun handleIncomingLocation(msg: PositionMessage) {
         if (msg.type != "position") return
 
         val oldPoint = remoteUsers[msg.user]?.first
@@ -81,6 +151,8 @@ class WebSocketConfig(
             )
         }
     }
+
+
 
     fun connectAndIdentify(wsClient: WebSocketClient, username: String) {
         wsClient.connect("192.168.1.32", 8080)  // 👈 puedes parametrizar IP/puerto si quieres

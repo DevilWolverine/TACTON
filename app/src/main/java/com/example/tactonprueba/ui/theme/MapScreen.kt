@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Bitmap
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.tactonprueba.R
 import com.example.tactonprueba.network.MapStyleConfig
+import com.example.tactonprueba.network.MarkerMessage
 import com.example.tactonprueba.network.WebSocketConfig
 import com.example.tactonprueba.utils.ToolBar
 import com.example.tactonprueba.utils.BottomPanelMenu
@@ -157,8 +159,17 @@ fun MapScreen() {
     }
 
     val wsClient = remember {
-        WebSocketClient { msg ->
-            wsConfig.handleIncomingMessage(msg, mapViewRef.value)
+        WebSocketClient { rawMsg ->
+            wsConfig.handleIncomingRawMessage(
+                rawMsg = rawMsg,
+                pointAnnotationManager = pointAnnotationManager.value,
+                defaultMarkerBitmap = defaultMarkerBitmap,
+                markerList = markerList,
+                onMarkerClicked = { clicked ->
+                    // Aquí decides qué pasa al pulsar un marcador
+                    Log.d("MapScreen", "🖱 Marcador pulsado: ${clicked.point}")
+                }
+            )
         }
     }
     // Fin Variables ===============================================================================
@@ -690,6 +701,17 @@ fun MapScreen() {
                         medevacList = medevacList,
                     )
 
+                    val markerMsg = MarkerMessage(
+                        type = "marker_create",
+                        user = "Devil",
+                        id = markerIdCounter.intValue,
+                        point = point,
+                        icon = distance.toString(),// o según el tipo que hayas elegido
+                        label = "Marcador ${markerIdCounter.intValue}"
+                    )
+
+                    wsClient.sendMessage(Gson().toJson(markerMsg))
+
                     // Conteo de marcadores
                     markerIdCounter.intValue++
 
@@ -734,6 +756,16 @@ fun MapScreen() {
                         },
                         medevacList = medevacList,
                     )
+
+                    val markerMsg = MarkerMessage(
+                        type = "marker_create",
+                        user = "Devil",
+                        id = markerIdCounter.intValue,
+                        point = point,   // o según el tipo que hayas elegido
+                        label = "Marcador ${markerIdCounter.intValue}"
+                    )
+
+                    wsClient.sendMessage(Gson().toJson(markerMsg))
 
                     markerIdCounter.intValue++
 
@@ -917,7 +949,7 @@ fun MapScreen() {
 
     // Conexión WebSocket
     LaunchedEffect(Unit) {
-        wsConfig.connectAndIdentify(wsClient, "Wolf")  // 👈 delegamos en WebSocketConfig
+        wsConfig.connectAndIdentify(wsClient, "Devil")  // 👈 delegamos en WebSocketConfig
     }
 
     // Cerrar aplicación
@@ -929,6 +961,5 @@ fun MapScreen() {
             MapStyleConfig.applyRemoteUsersStyle(style, userSourceRef, navBitmap)
         }
     }
-
 
 }

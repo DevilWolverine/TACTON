@@ -2,18 +2,10 @@ package com.example.tactonprueba.network
 
 import android.util.Log
 import com.google.gson.Gson
-import com.mapbox.geojson.Point
 import okhttp3.*
 
-data class PositionMessage(
-    val type: String,
-    val user: String,
-    val point: Point,
-    val bearing: Double? = null
-)
-
 class WebSocketClient(
-    private val onMessageReceived: (PositionMessage) -> Unit
+    private val onMessageReceived: (String) -> Unit
 ) {
     private val client = OkHttpClient()
     private var webSocket: WebSocket? = null
@@ -31,9 +23,8 @@ class WebSocketClient(
 
             override fun onMessage(ws: WebSocket, text: String) {
                 try {
-                    Log.d("WebSocket", "📩 Mensaje bruto: $text")
                     val msg = gson.fromJson(text, PositionMessage::class.java)
-                    onMessageReceived(msg)
+                    onMessageReceived(text)
                 } catch (e: Exception) {
                     Log.e("WebSocket", "❌ Error parseando JSON: ${e.message}")
                 }
