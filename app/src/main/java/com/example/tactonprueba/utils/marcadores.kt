@@ -63,30 +63,33 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.tactonprueba.R
-import com.example.tactonprueba.utils.formatFecHor
+import com.google.gson.JsonPrimitive
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapView
 import com.mapbox.maps.extension.style.layers.properties.generated.TextAnchor
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
 import com.mapbox.turf.TurfConstants
 import com.mapbox.turf.TurfMeasurement
-import com.google.gson.JsonPrimitive
-import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
 import java.util.Calendar
 import kotlin.String
 
 
-// ================== Modelo de datos ==================
+// Modelos De Datos ================================================================================
+// Tipos de marcadores y filtros
+enum class MarkerType { NORMAL, MEDEVAC, TUTELA }
+enum class MarkerFilter { TODOS, GENERICOS, ENTIDADES }
+
+// Composición de un marcador en pantalla
 data class MarkerOption(
     val id: String,
     val label: String,
     @DrawableRes val iconRes: Int
 )
 
-enum class MarkerType { NORMAL, MEDEVAC, TUTELA }
-
+// Datos de un marcador normal
 data class MarkerData(
     val id: Int,
     val name: String,
@@ -94,12 +97,12 @@ data class MarkerData(
     val icon: Bitmap,
     val createdBy: String,
     val distance: Double?,
-    val type: MarkerType = MarkerType.NORMAL,   // 👈 Nuevo campo
+    val type: MarkerType = MarkerType.NORMAL,
     val medevac: MedevacData? = null,
-    val tutela: TutelaData? = null// 👈 Solo si es de tipo MEDEVAC
+    val tutela: TutelaData? = null
 )
 
-// =================== Catálogo de marcadores ===================
+// Catálogo de marcadores ==========================================================================
 fun defaultMarkerOptions(): List<MarkerOption> = listOf(
     MarkerOption("01", "Marcador", R.drawable.red),
     MarkerOption("02", "Marcador blanco", R.drawable.wht_circle),
@@ -156,7 +159,8 @@ fun defaultMarkerOptions(): List<MarkerOption> = listOf(
 
 )
 
-// =================== Marcador ===================
+// Componentes =====================================================================================
+// Contenedor Marcador ===============================================================================
 @Composable
 private fun MarkerCard(option: MarkerOption, onClick: (MarkerOption) -> Unit) {
     Card(
@@ -167,12 +171,19 @@ private fun MarkerCard(option: MarkerOption, onClick: (MarkerOption) -> Unit) {
         elevation = CardDefaults.cardElevation(2.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            // Icono arriba, texto abajo
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(painter = painterResource(option.iconRes), contentDescription = option.label, modifier = Modifier.size(32.dp))
+                Image(
+                    painter = painterResource(option.iconRes),
+                    contentDescription = option.label,
+                    modifier = Modifier.size(32.dp)
+                )
+
                 Text(
                     text = option.label,
                     fontSize = 8.sp,
@@ -185,7 +196,7 @@ private fun MarkerCard(option: MarkerOption, onClick: (MarkerOption) -> Unit) {
     }
 }
 
-// =================== Selección de marcador =======================
+// Selección Marcador Submenú ======================================================================
 @Composable
 fun MarkerPicker(
     onSelect: (MarkerOption) -> Unit,
@@ -193,18 +204,17 @@ fun MarkerPicker(
     onDismissRequest: () -> Unit = {},
 ) {
 
-    var filter by remember { mutableStateOf(MarkerFilter.TODOS) }
-    var expanded by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
+    var expanded by remember { mutableStateOf(false) }
+    var filter by remember { mutableStateOf(MarkerFilter.TODOS) }
 
-    // Recolocar en el primer item de marcadores
     LaunchedEffect(filter) {
         if (filter == MarkerFilter.TODOS) {
             gridState.scrollToItem(0)
         }
     }
 
-    // Tipos de filtrado
+    // Filtros
     val options = remember(filter) {
         when (filter) {
             MarkerFilter.TODOS      -> defaultMarkerOptions()
@@ -250,6 +260,7 @@ fun MarkerPicker(
                     }
                 }
 
+                // Desplegable
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
@@ -294,6 +305,7 @@ fun MarkerPicker(
             }
 
         }
+
     } else {
         Box(
             modifier = Modifier
@@ -303,32 +315,29 @@ fun MarkerPicker(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
-                    onDismissRequest() // 👈 click fuera -> cerrar
+                    onDismissRequest()
                 },
             contentAlignment = Alignment.Center
         ) {
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    state = gridState,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxHeight(0.5f).background(
-                        Color.Black.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(12.dp)
-                    ).padding(20.dp)
-                ) {
-                    items(options, key = { it.id }) { opt ->
-                        MarkerCard(opt, onClick = onSelect)
-                    }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                state = gridState,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxHeight(0.5f).background(
+                    Color.Black.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(12.dp)
+                ).padding(20.dp)
+            ) {
+                items(options, key = { it.id }) { opt ->
+                    MarkerCard(opt, onClick = onSelect)
                 }
-
+            }
         }
     }
 }
 
-
-// =================== Menú flotante del marcador =======================
+// Menú Flotante ===================================================================================
 @Composable
 fun MarkerMenu(
     mapView: MapView,
@@ -344,18 +353,15 @@ fun MarkerMenu(
     isMeasuringMode: MutableState<Boolean>,
     measuringMarker: MutableState<Point?>,
 ) {
+
     if (selectedMarker == null) return
 
-
+    var isUTM by remember { mutableStateOf(false) }
     val markerName = selectedMarker.getData()?.asString ?: "Sin nombre"
     val point =
         Point.fromLngLat(selectedMarker.point.longitude(), selectedMarker.point.latitude())
 
     val utm = latLonToUTM(point.latitude(), point.longitude())
-    var isUTM by remember { mutableStateOf(false) }
-
-    cameraMove(mapView, point)
-
     val screenCoords = remember(selectedMarker) {
         mapView.mapboxMap.pixelForCoordinate(selectedMarker.point)
     }
@@ -372,21 +378,24 @@ fun MarkerMenu(
         }
     }
 
+    cameraMove(mapView, point)
+
     if(!isMeasuringMode.value) {
+        // Contenedor del menú
         Box(
             modifier = Modifier
-                .fillMaxSize() // cubrimos toda la pantalla
-                .background(Color.Transparent) // fondo transparente
+                .fillMaxSize()
+                .background(Color.Transparent)
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
-                    // 👆 Si hago click fuera, cierro el menú
                     onDismiss()
                 }
         ) {
             Card(
                 modifier = Modifier
+                    // Colocación del menú debajo del marcador
                     .absoluteOffset(
                         x = with(LocalDensity.current) { screenCoords.x.toFloat().toDp() - 80.dp },
                         y = with(LocalDensity.current) { screenCoords.y.toFloat().toDp() + 30.dp }
@@ -396,6 +405,7 @@ fun MarkerMenu(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(6.dp),
             ) {
+                // Contenido del menú
                 Column(
                     modifier = Modifier.background(Color(0xFF1E1E1E)).padding(12.dp),
                     verticalArrangement = Arrangement.Center,
@@ -405,30 +415,38 @@ fun MarkerMenu(
                         modifier = Modifier.fillMaxWidth().clickable { isUTM = !isUTM }
                             .padding(horizontal = 4.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center,
+
                     ) {
                         Text(
                             formatCoords(),
                             color = Color.White,
                             style = MaterialTheme.typography.bodySmall
+
                         )
                     }
+
                     HorizontalDivider(color = Color.Red)
+
                     // Botones de acción
                     Row(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         modifier = Modifier.fillMaxWidth()
+
                     ) {
                         IconButton(onClick = { isInfoVisible.value = !isInfoVisible.value }) {
                             Icon(
-                                if (isInfoVisible.value) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (isInfoVisible.value) "Ocultar info" else "Mostrar info",
+                                if (isInfoVisible.value) Icons.Default.Visibility
+                                else Icons.Default.VisibilityOff,
+                                contentDescription = if (isInfoVisible.value) "Ocultar info"
+                                else "Mostrar info",
                                 tint = Color.White
-                            )
 
+                            )
                         }
-                        IconButton(onClick = {
-                            isEditingMarker.value = selectedMarker
-                        }) {
+
+                        IconButton(
+                            onClick = { isEditingMarker.value = selectedMarker }
+                        ) {
                             Icon(
                                 Icons.Default.EditLocationAlt,
                                 contentDescription = "Cambiar marcador",
@@ -436,20 +454,24 @@ fun MarkerMenu(
                             )
                         }
                     }
+
                     Row(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        IconButton(onClick = {
-                            distantRequest(selectedMarker.point)  // activa el punto de medición
-                            onDismiss()
-                        }) {
+                        IconButton(
+                            onClick = {
+                                distantRequest(selectedMarker.point)
+                                onDismiss()
+                            }
+                        ) {
                             Icon(
                                 Icons.Default.Architecture,
                                 contentDescription = "Medir distancia",
                                 tint = Color.White
                             )
                         }
+
                         IconButton(
                             onClick = {
                                 removeMarkerAndCancelMeasure(
@@ -458,7 +480,6 @@ fun MarkerMenu(
                                     annotationManager = pointAnnotationManager,
                                     isMeasuringMode = isMeasuringMode,
                                     measuringMarker = measuringMarker,
-                                    //mapView = mapView,
                                     polylineManager = polylineManager,
                                 )
                                 onDismiss()
@@ -476,19 +497,21 @@ fun MarkerMenu(
 
             if (isInfoVisible.value) {
                 MarkerInfo(
-                    owner = "Devil", // de momento vacío
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(12.dp),
+                    owner = "Devil", // 👈 owner Cambiar y reutilizar
                     markerName = markerName,
                     distance = distance,
                     coords = formatCoords(),
-                    timestamp = formatFecHor(), // reutilizas tu función
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(12.dp)
+                    timestamp = formatFecHor(),
+
                 )
             }
         }
-    } else {
+        // Fin del contenedor
 
+    } else {
         distantRequest(selectedMarker.point)
         onDismiss()
         isMeasuringMode.value = false
@@ -497,7 +520,7 @@ fun MarkerMenu(
 
 }
 
-// =================== Información del marcador =======================
+// Información del marcador ========================================================================
 @Composable
 fun MarkerInfo(
     owner: String,
@@ -517,17 +540,41 @@ fun MarkerInfo(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("Marcador de: $owner", color = Color.Gray, fontSize = 12.sp)
-            Text("Tipo: $markerName", color = Color.White, fontSize = 12.sp)
-            Text("Coordenadas:\n $coords", color = Color.White, fontSize = 12.sp)
-            Text("Distancia: ${"%.1f".format(distance)} m", color = Color.White, fontSize = 12.sp)
-            Text("Colocado: $timestamp", color = Color.White, fontSize = 12.sp)
+            Text(
+                "Marcador de: $owner",
+                color = Color.Gray,
+                fontSize = 12.sp
+            )
+
+            Text(
+                "Tipo: $markerName",
+                color = Color.White,
+                fontSize = 12.sp
+            )
+
+            Text(
+                "Coordenadas:\n $coords",
+                color = Color.White,
+                fontSize = 12.sp
+            )
+
+            Text(
+                "Distancia: ${"%.1f".format(distance)} m",
+                color = Color.White,
+                fontSize = 12.sp
+            )
+
+            Text(
+                "Colocado: $timestamp",
+                color = Color.White,
+                fontSize = 12.sp
+            )
         }
     }
 }
 
 
-// =================== Botón de cancelar posicionamiento marcador =======================
+// Botón Cancelar Colocar Marcador =================================================================
 @Composable
 fun MarkerCancel(
     onCancel: () -> Unit,
@@ -548,12 +595,14 @@ fun MarkerCancel(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            Icons.Default.WrongLocation,// ⚠️ añade un drawable de "cancelar"
+            Icons.Default.WrongLocation,
             contentDescription = "Cancelar marcador",
             tint = Color.White,
             modifier = Modifier.size(28.dp)
         )
+
         Spacer(modifier = Modifier.height(4.dp))
+
         Text(
             text = "Cancelar",
             color = Color.White,
@@ -562,24 +611,26 @@ fun MarkerCancel(
         )
     }
 }
+// FIN Componentes =================================================================================
 
-// =================== Filtro de marcadores =======================
-enum class MarkerFilter { TODOS, GENERICOS, ENTIDADES }
-
-// =================== Funciones para filtrado de marcadores =======================
+// Funciones Auxiliares ============================================================================
+// Filtrado Marcadores =============================================================================
+// Genéricos
 fun genericMarker(): List<MarkerOption> =
     defaultMarkerOptions().filter { option ->
         val num = option.id.toIntOrNull()
         num != null && num in 1..12
     }
 
+// Entidades
 fun entityMarker(): List<MarkerOption> =
     defaultMarkerOptions().filter { option ->
         val num = option.id.toIntOrNull()
         num != null && num in 13..52
     }
+// FIN Filtrado Marcadores =========================================================================
 
-// =================== Creacion composición del marcador =======================
+// Creación Composición Marcador ===================================================================
 fun placeMarker(
     mgr: PointAnnotationManager,
     bmp: Bitmap,
@@ -598,6 +649,7 @@ fun placeMarker(
 
     ) {
 
+    // Crea el marcador
     val annotation = mgr.create(
         PointAnnotationOptions()
             .withPoint(point)
@@ -613,6 +665,7 @@ fun placeMarker(
 
     )
 
+    // Guarda el marcador
     saveMarker(
         markerList = markerList,
         id = id,
@@ -628,17 +681,16 @@ fun placeMarker(
         tutelaData = tutelaData,
     )
 
-
-    // 👇 Listener de click en el marcador
+    // Listener de click en el marcador
     mgr.addClickListener { clicked ->
         if (clicked.id == annotation.id) {
             onMarkerClicked(clicked)
             true
         } else false
     }
-
 }
 
+// Guardar Marcador ================================================================================
 private fun saveMarker(
     markerList: SnapshotStateList<MarkerData>,
     id: Int,
@@ -655,6 +707,7 @@ private fun saveMarker(
     tutelaData: TutelaData? = null
 ) {
 
+    // Guarda el marcador según el tipo
     if (isMedevacMode.value) {
 
         val medevacData = MedevacData(
@@ -676,7 +729,7 @@ private fun saveMarker(
 
         val tutelaAux = tutelaList.lastOrNull()
 
-        if (tutelaAux == null || tutelaAux?.puesto != tutelaData?.puesto )  {
+        if (tutelaAux == null || tutelaAux.puesto != tutelaData?.puesto )  {
 
             val tutelaData = TutelaData(
                 tiempo = tutelaData?.tiempo.toString(),
@@ -689,9 +742,11 @@ private fun saveMarker(
                 distancia = distance,
                 tipo = TutelaTipo.REPORT
             )
+
             tutelaList.add(tutelaData)
 
         } else {
+
             val tutela = TutelaData(
                 tiempo = tutelaData?.tiempo.toString(),
                 unidad = tutelaData?.unidad.toString(),
@@ -703,12 +758,9 @@ private fun saveMarker(
                 distancia = distance,
                 tipo = TutelaTipo.OBJETIVO
             )
+
             tutelaList.add(tutela)
         }
-
-
-
-
 
     } else {
 
@@ -726,6 +778,7 @@ private fun saveMarker(
     }
 }
 
+// Actualizar Icono Marcador =======================================================================
 fun updateMarkerIconByPoint(
     point: Point,
     newIcon: Bitmap,
@@ -736,18 +789,19 @@ fun updateMarkerIconByPoint(
     if (markerIndex != -1 && annotationManager != null) {
         val oldMarker = markers[markerIndex]
 
-        // Actualizar en el mapa
+        // Lo actualiza en el mapa
         val annotationToUpdate = annotationManager.annotations.find { it.geometry == point }
         annotationToUpdate?.let {
             it.iconImageBitmap = newIcon
             annotationManager.update(it)
         }
 
-        // Actualizar en la lista (solo icono)
+        // Actualiza el icono en la lista
         markers[markerIndex] = oldMarker.copy(icon = newIcon)
     }
 }
 
+// Eliminar Marcador ===============================================================================
 fun removeMarkerByPoint(
     point: Point,
     markers: MutableList<MarkerData>,
@@ -757,20 +811,22 @@ fun removeMarkerByPoint(
     tutelas: SnapshotStateList<TutelaData?> = mutableStateListOf(),
     annotationManager: PointAnnotationManager,
 ) {
-    // Buscar el marcador en la lista por geometría
+
+    // Busca el marcador en las listas
     val markerToRemove = markers.find { it.point == point }
     val medevacToRemove = medevacs.find { it?.line1 == point }
     val tutelaToRemove = tutelas.find { it?.puesto == point }
     val tutela2ToRemove = tutelas.find { it?.localizacion == point }
 
+    // Borra el marcador del mapa y de la lista
     if (markerToRemove != null) {
-        // Borrar del mapa por geometría
+
         val annotationsToRemove = annotationManager.annotations.filter {
             it.geometry == point
         }
+
         annotationManager.delete(annotationsToRemove)
 
-        // Borrar de la lista
         markers.remove(markerToRemove)
         if (isMedevacMode.value) {
             medevacs.remove(medevacToRemove)
@@ -778,23 +834,26 @@ fun removeMarkerByPoint(
 
         if (isTutelaMode.value) {
             when {
-                tutelaToRemove != null -> tutelas.remove(tutelaToRemove) // puesto
-                tutela2ToRemove != null -> tutelas.remove(tutela2ToRemove) // localización
+                tutelaToRemove != null -> tutelas.remove(tutelaToRemove)
+                tutela2ToRemove != null -> tutelas.remove(tutela2ToRemove)
             }
         }
 
     }
 }
 
-// =================== Función para formatear la fecha/hora =======================
+// Formato Fecha/Hora ==============================================================================
 fun formatFecHor(): String{
+
     val cal = Calendar.getInstance()
 
-    val hora = if (cal.get(Calendar.HOUR_OF_DAY) < 10) "0${cal.get(Calendar.HOUR_OF_DAY)}" else cal.get(Calendar.HOUR_OF_DAY)
-    val min = if (cal.get(Calendar.MINUTE) < 10) "0${cal.get(Calendar.MINUTE)}" else cal.get(Calendar.MINUTE)
-    val dia = cal.get(Calendar.DAY_OF_MONTH)
-    val mes = cal.get(Calendar.MONTH) + 1
     val anio = cal.get(Calendar.YEAR).toString().takeLast(2)
+    val mes = cal.get(Calendar.MONTH) + 1
+    val dia = cal.get(Calendar.DAY_OF_MONTH)
+    val hora =  if (cal.get(Calendar.HOUR_OF_DAY) < 10) "0${cal.get(Calendar.HOUR_OF_DAY)}"
+                else cal.get(Calendar.HOUR_OF_DAY)
+    val min =   if (cal.get(Calendar.MINUTE) < 10) "0${cal.get(Calendar.MINUTE)}"
+                else cal.get(Calendar.MINUTE)
 
     val mesStr = when (mes) {
         1 -> "JAN"
@@ -813,4 +872,5 @@ fun formatFecHor(): String{
     }
 
     return "$dia$hora$min$mesStr$anio"
+
 }

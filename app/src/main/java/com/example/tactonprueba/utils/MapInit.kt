@@ -6,6 +6,8 @@ import com.mapbox.common.MapboxOptions
 
 object MapInit {
     @SuppressLint("DiscouragedApi")
+
+    // Cargado de mapa y tokens para conexión
     fun provideAccessToken(context: Context) {
         val token = context.getString(
             context.resources.getIdentifier(
@@ -15,6 +17,7 @@ object MapInit {
         MapboxOptions.accessToken = token
     }
 
+    // Estilos de mapa
     const val NORMAL = "mapbox://styles/devilwolverine/cmdcvi8dx00a701r108ticovj"
     const val SATELLITE = "mapbox://styles/mapbox/satellite-streets-v12"
     const val LIGHT = "mapbox://styles/mapbox/light-v11"

@@ -34,7 +34,8 @@ import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
 import com.mapbox.turf.TurfMeasurement
 
-// ========== Muestra la distancia entre dos puntos y cierra ===========
+// Componentes =====================================================================================
+// Medir Distancias ================================================================================
 @Composable
 fun DistantToMarker(
     distance: Double,
@@ -52,20 +53,23 @@ fun DistantToMarker(
 ) {
 
     val marker = measuringMarker.value
+    val useDeviceOrientation = remember { mutableStateOf(true) }
+
     val bearing = marker?.let {
         TurfMeasurement.bearing(userLocation, it).toFloat()
     } ?: 0f
 
-    val useDeviceOrientation = remember { mutableStateOf(true) }
-
-    // Distancia entre dos puntos
     Column(
-        modifier =  if (!placing && !isMeasuringMode.value && !isPickingLocalizacion.value && !isTutelaMode.value && !isMedevacMode.value) modifier.padding(top = 96.dp, end = 13.dp)
+        modifier =  if (!placing &&
+                        !isMeasuringMode.value &&
+                        !isPickingLocalizacion.value &&
+                        !isTutelaMode.value &&
+                        !isMedevacMode.value) modifier.padding(top = 96.dp, end = 13.dp)
                     else modifier.padding(top = 165.dp, end = 13.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Metros
+        // Distancia en metros
         Text(
             text = "${"%.1f".format(distance)} m",
             color = Color.White,
@@ -74,27 +78,30 @@ fun DistantToMarker(
                 .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
                 .padding(6.dp)
         )
-        // Cajon cruz y flecha
-        Row (verticalAlignment = Alignment.CenterVertically,
+
+        // Cajón cruz y flecha
+        Row (
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.padding(start = 8.dp)){
+            modifier = Modifier.padding(start = 8.dp)
+        ){
             Icon(
                 Icons.Default.ArrowUpward,
                 contentDescription = "Dirección al marcador",
-                tint = Color.White,
                 modifier = Modifier
                     .size(32.dp)
                     .background(Color.Black.copy(alpha = 0.7f), shape = CircleShape)
                     .clickable { useDeviceOrientation.value = !useDeviceOrientation.value }
                     .graphicsLayer {
                         rotationZ = if (useDeviceOrientation.value) {
-                            // 🔹 Orientación relativa con brújula
                             ((bearing - heading + 360f) % 360f)
                         } else {
-                            // 🔹 Orientación relativa con la cámara del mapa
-                            ((bearing - mapView.mapboxMap.cameraState.bearing.toFloat() + 360f) % 360f)
+                            ((bearing - mapView.mapboxMap.cameraState.bearing.toFloat() + 360f)
+                                    % 360f)
                         }
-                    }
+                    },
+                tint = Color.White,
+
             )
 
             IconButton(
@@ -103,6 +110,7 @@ fun DistantToMarker(
                     isMeasuringMode.value = false
                     polylineManager?.deleteAll()
                 }
+
             ) {
                 Icon(
                     Icons.Default.Cancel,
@@ -115,14 +123,18 @@ fun DistantToMarker(
 
     }
 }
+// FIN Componentes =================================================================================
 
-// ========== Dibuja la línea entre dos puntos ===========
+// Funciones Auxiliares ============================================================================
+// Dibujar Línea Entre Puntos ======================================================================
 fun drawDistanceLine(
     polylineManager: PolylineAnnotationManager?,
     userLocation: Point,
     markerLocation: Point
 ) {
+
     polylineManager?.deleteAll()
+
     val polylineOptions = PolylineAnnotationOptions()
         .withPoints(listOf(userLocation, markerLocation))
         .withLineColor("#FF0000")
@@ -131,6 +143,7 @@ fun drawDistanceLine(
 
 }
 
+// Eliminar Marcador Y Medición ====================================================================
 fun removeMarkerAndCancelMeasure(
     point: Point,
     markers: MutableList<MarkerData>,
@@ -143,7 +156,6 @@ fun removeMarkerAndCancelMeasure(
     measuringMarker: MutableState<Point?>,
     polylineManager: MutableState<PolylineAnnotationManager?>,
 ) {
-    // Eliminar marcador normalmente
     removeMarkerByPoint(
         point = point,
         markers = markers,
@@ -154,7 +166,7 @@ fun removeMarkerAndCancelMeasure(
         isMedevacMode = isMedevacMode,
     )
 
-    // 👇 SOLO limpiar la medición si el punto eliminado era el mismo que estaba midiendo
+    // Elimina la medición si era el marcador que se estaba midiendo
     if (measuringMarker.value == point) {
         measuringMarker.value = null
         isMeasuringMode.value = false

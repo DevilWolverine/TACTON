@@ -46,12 +46,15 @@ import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
 
+
+// Componentes =====================================================================================
+// Estilo Menú principal ===========================================================================
 @Composable
 fun MenuCard(pic: ImageVector, label: String, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f) // Para que sea cuadrado
+            .aspectRatio(1f)
             .clickable { onClick() },
         elevation = CardDefaults.cardElevation(4.dp),
         shape = RoundedCornerShape(16.dp)
@@ -70,6 +73,7 @@ fun MenuCard(pic: ImageVector, label: String, onClick: () -> Unit) {
     }
 }
 
+// Estilo Submenú ==================================================================================
 @Composable
 fun SubmenuCard(label: String, onClick: () -> Unit) {
     Card(
@@ -92,6 +96,7 @@ fun SubmenuCard(label: String, onClick: () -> Unit) {
     }
 }
 
+// Contenedor Menús ================================================================================
 @Composable
 fun BottomPanelMenu(
     isVisible: Boolean,
@@ -111,16 +116,16 @@ fun BottomPanelMenu(
 
     ) {
     val activeSubmenu = remember { mutableStateOf<String?>(null) }
-    var showMarkerPicker  by remember { mutableStateOf(false) }
+    val backStack = remember { mutableStateListOf<() -> Unit>() }
+    var pickerOptions by remember { mutableStateOf<List<MarkerOption>>(emptyList()) }
     var showMarkerList  by remember { mutableStateOf(false) }
+    var showMarkerPicker  by remember { mutableStateOf(false) }
     var showMedevacList  by remember { mutableStateOf(false) }
     var showTutelaList  by remember { mutableStateOf(false) }
-    var pickerOptions by remember { mutableStateOf<List<MarkerOption>>(emptyList()) }
-    val backStack = remember { mutableStateListOf<() -> Unit>() }
 
+    // Reset del menú
     LaunchedEffect(isVisible) {
         if (!isVisible) {
-            // 🔄 reset total del estado interno del menú
             activeSubmenu.value = null
             showMarkerPicker = false
             showMarkerList = false
@@ -131,6 +136,7 @@ fun BottomPanelMenu(
         }
     }
 
+    // Animación de aparición
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInVertically(initialOffsetY = { it }),
@@ -153,16 +159,17 @@ fun BottomPanelMenu(
                     )
             )
 
-            // Panel del menú (3/4 inferior)
+            // Panel del menú
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.5f) //ESTO ESTABA A 0.75 !!!!!!!!!!!
+                    .fillMaxHeight(0.5f)
                     .align(Alignment.BottomCenter)
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(16.dp)
-                    .clickable(enabled = false) {} // Evita que se cierre al hacer clic dentro
+                    .clickable(enabled = false) {}
             ) {
+                // Muestra el menú o el submenú
                 if (activeSubmenu.value == null) {
                     RenderMainMenu(
                         onSelect = { activeSubmenu.value = it },
@@ -177,7 +184,10 @@ fun BottomPanelMenu(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("${activeSubmenu.value}", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "${activeSubmenu.value}",
+                            style = MaterialTheme.typography.titleMedium
+                        )
 
                         IconButton(
                             onClick = {
@@ -243,13 +253,22 @@ fun BottomPanelMenu(
     }
 }
 
+// Carga Menú Principal ============================================================================
 @Composable
 private fun RenderMainMenu(
     onSelect: (String) -> Unit,
     onOptionSelected: (String) -> Unit
 ) {
-    Row (modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween){
-        Text("Herramientas", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+    Row (
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ){
+        Text(
+            "Herramientas",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
 
         IconButton(onClick = { onOptionSelected("Cerrar") } ) {
             Icon(
@@ -260,8 +279,10 @@ private fun RenderMainMenu(
 
         }
     }
+
     Spacer(Modifier.height(12.dp))
 
+    // Lista de opciones de los submenús
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -280,6 +301,7 @@ private fun RenderMainMenu(
     }
 }
 
+// Carga Submenú ===================================================================================
 @Composable
 fun RenderSubMenu(
     submenu: String?,
@@ -307,10 +329,15 @@ fun RenderSubMenu(
     polylineManager: MutableState<PolylineAnnotationManager?>,
 ) {
 
+    // Selección de la opción de los submenús
     when (submenu) {
         "Mapas" -> {
             val scroll = rememberScrollState()
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize().verticalScroll(scroll)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize().verticalScroll(scroll)
+            ) {
+                // Estilos de mapas
                 SubmenuCard("Normal") { onStyleSelected(MapInit.NORMAL) }
                 SubmenuCard("Satélite") { onStyleSelected(MapInit.SATELLITE) }
                 SubmenuCard("Claro") { onStyleSelected(MapInit.LIGHT) }
@@ -321,7 +348,6 @@ fun RenderSubMenu(
         }
 
         "Marcadores" -> {
-            // 1) Al entrar en "Marcadores" por primera vez, abrir directamente el picker con TODOS
             val initialized = remember(submenu) { mutableStateOf(false) }
             LaunchedEffect(submenu) {
                 if (!initialized.value) {
@@ -331,31 +357,29 @@ fun RenderSubMenu(
                 }
             }
 
-            // 3) UI: mostramos el picker cuando toque (sin submenú intermedio)
             if (showMarkerPicker) {
                 MarkerPicker(
                     onSelect = { selected ->
                         onMarkerSelected(selected)
-                        setShowMarkerPicker(false) // al cerrar, gracias al back, vuelves al principal (si así lo gestionas)
+                        setShowMarkerPicker(false)
                     }
                 )
             }
         }
 
-        // Puedes seguir añadiendo más submenús:
         "Medevac" -> {
 
             if (showMedevacList) {
                 pushBack(backStack) { setShowMedevacList(false) }
                 if (medevacList.isEmpty()) {
                     Text(
-                        "No hay marcadores aún",
+                        "No hay solicitudes",
                         modifier = Modifier.padding(16.dp)
                     )
-                } else {
 
+                } else {
                     MedevacList (
-                        medevacs = medevacList,              // 👈 tu SnapshotStateList
+                        medevacs = medevacList,
                         mapView = mapView,
                         markers = markerList,
                         polylineManager = polylineManager,
@@ -366,10 +390,8 @@ fun RenderSubMenu(
                             onOptionSelected("Cerrar")
                             clearBack(backStack)
                         },
-                        distantRequest = { distantRequest -> distantRequest(distantRequest) },// 👈 pásale el manager
-
-
-                    )  // 👈 composable que muestra icono, nombre, distancia, etc
+                        distantRequest = { distantRequest -> distantRequest(distantRequest) },
+                    )
                 }
 
             } else {
@@ -391,13 +413,13 @@ fun RenderSubMenu(
                 pushBack(backStack) { setShowTutelaList(false) }
                 if (tutelaList.isEmpty()) {
                     Text(
-                        "No hay marcadores aún",
+                        "No hay informes",
                         modifier = Modifier.padding(16.dp)
                     )
-                } else {
 
+                } else {
                     TutelaList (
-                        tutelas = tutelaList,              // 👈 tu SnapshotStateList
+                        tutelas = tutelaList,
                         mapView = mapView,
                         markers = markerList,
                         polylineManager = polylineManager,
@@ -408,10 +430,8 @@ fun RenderSubMenu(
                             onOptionSelected("Cerrar")
                             clearBack(backStack)
                         },
-                        distantRequest = { distantRequest -> distantRequest(distantRequest) },// 👈 pásale el manager
-
-
-                    )  // 👈 composable que muestra icono, nombre, distancia, etc
+                        distantRequest = { distantRequest -> distantRequest(distantRequest) },
+                    )
                 }
 
             } else {
@@ -429,7 +449,6 @@ fun RenderSubMenu(
         }
 
         "Topografía" -> {
-
             if (showMarkerList) {
                 pushBack(backStack) { setShowMarkerList(false) }
                 if (markerList.isEmpty()) {
@@ -437,10 +456,10 @@ fun RenderSubMenu(
                         "No hay marcadores aún",
                         modifier = Modifier.padding(16.dp)
                     )
-                } else {
 
+                } else {
                     MarkerList(
-                        markers = markerList,              // 👈 tu SnapshotStateList
+                        markers = markerList,
                         mapView = mapView,
                         polylineManager = polylineManager,
                         isMeasuringMode = isMeasuringMode,
@@ -450,7 +469,7 @@ fun RenderSubMenu(
                             onOptionSelected("Cerrar")
                             clearBack(backStack)
                         }
-                    )  // 👈 composable que muestra icono, nombre, distancia, etc
+                    )
                 }
 
             } else {
@@ -477,12 +496,12 @@ fun RenderSubMenu(
         else -> {
             Text("Submenú no disponible.")
         }
+
     }
 }
 
-
-// ==================== Menus Finales ====================
-// ==================== Menu Final Marcadores ====================
+// Menus Finales ===================================================================================
+// Menu Final Marcadores ===========================================================================
 @Composable
 fun MarkerList(
     markers: SnapshotStateList<MarkerData>,
@@ -515,6 +534,7 @@ fun MarkerList(
     }
 }
 
+// Lista de marcadores =============================================================================
 @Composable
 fun MarkerListItem(
     marker: MarkerData,
@@ -539,12 +559,11 @@ fun MarkerListItem(
         ) {
 
         Column(Modifier.padding(12.dp).fillMaxSize()) {
-            // 👁️ Lo básico visible siempre
-
-            Row(verticalAlignment = Alignment.CenterVertically,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()) {
-
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(
                         bitmap = marker.icon.asImageBitmap(),
@@ -586,7 +605,9 @@ fun MarkerListItem(
                             tint = Color.White
                         )
                     }
+
                     VerticalDivider(color = Color.Red)
+
                     IconButton(
                         onClick = {
                             if (marker.type == MarkerType.NORMAL) {
@@ -597,7 +618,6 @@ fun MarkerListItem(
                                     isMeasuringMode = isMeasuringMode,
                                     measuringMarker = measuringMarker,
                                     polylineManager = polylineManager,
-                                    //mapView = mapView
                                 )
                             }
                         }
@@ -614,7 +634,7 @@ fun MarkerListItem(
     }
 }
 
-// ==================== Menu Final Medevac ====================
+// Menú Final Medevac ==============================================================================
 @Composable
 fun MedevacList(
     medevacs: SnapshotStateList<MedevacData?> = mutableStateListOf(),
@@ -660,6 +680,7 @@ fun MedevacList(
     }
 }
 
+// Estilo Medevacs =================================================================================
 @Composable
 fun MedevacItem(
     medevac: MedevacData?,
@@ -674,7 +695,9 @@ fun MedevacItem(
     polylineManager: MutableState<PolylineAnnotationManager?>,
 
     ) {
+
     val isMedevacMode = remember { mutableStateOf(true) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -683,7 +706,7 @@ fun MedevacItem(
                 medevac?.line1?.let { distantRequest(it) }
                 cameraMove(mapView, medevac?.line1)
                 onDismissRequest()
-                },
+            },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1C)),
         border = BorderStroke(1.dp, Color.DarkGray)
@@ -705,6 +728,7 @@ fun MedevacItem(
                     fontSize = 18.sp
                 )
 
+                // Elimincaión de medevacs
                 IconButton(
                     onClick = {
                         medevac?.line1?.let {
@@ -717,11 +741,10 @@ fun MedevacItem(
                                 isMeasuringMode = isMeasuringMode,
                                 measuringMarker = measuringMarker,
                                 polylineManager = polylineManager,
-                                //mapView = mapView
                             )
-
                         }
                     }
+
                 ) {
                     Icon(
                         Icons.Default.Delete,
@@ -737,17 +760,21 @@ fun MedevacItem(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.Start
             ) {
+
                 medevac?.line1?.let {
                     Text(
-                        text = "L1 = ${"%.5f".format(medevac.line1.latitude())}, ${"%.5f".format(medevac.line1.longitude())}",
+                        text = "L1 = ${"%.5f".format(medevac.line1.latitude())}," +
+                                " ${"%.5f".format(medevac.line1.longitude())}",
                         color = Color.LightGray,
                         fontSize = 14.sp
                     )
                 }
 
-                Row(modifier = Modifier.fillMaxWidth(),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween){
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ){
                     Text(
                         text = "L2 = ${medevac?.line2 ?: "-"}",
                         color = Color.LightGray,
@@ -761,12 +788,8 @@ fun MedevacItem(
                             fontSize = 12.sp
                         )
                     }
-
                 }
-
             }
-
-
 
             HorizontalDivider(color = Color.DarkGray, thickness = 1.dp)
 
@@ -775,30 +798,37 @@ fun MedevacItem(
                 return if (!value.isNullOrBlank()) value.trim().first().toString() else "-"
             }
 
-            // Resto de líneas (agrupadas en filas)
+            // Datos
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
+
             ) {
-                Row(modifier = Modifier.fillMaxWidth(),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     Text("L3 = ${abbrev(medevac?.line3)}",
                         color = Color.White, fontSize = 14.sp)
+
                     Text("L4 = ${abbrev(medevac?.line4)}",
                         color = Color.White, fontSize = 14.sp)
+
                     Text("L5 = ${abbrev(medevac?.line5)}",
                         color = Color.White, fontSize = 14.sp)
                 }
 
-                Row(modifier = Modifier.fillMaxWidth(),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     Text("L6 = ${abbrev(medevac?.line6)}",
                         color = Color.White, fontSize = 14.sp)
+
                     Text("L7 = ${abbrev(medevac?.line7)}",
                         color = Color.White, fontSize = 14.sp)
+
                     Text("L8 = ${abbrev(medevac?.line8)}",
                         color = Color.White, fontSize = 14.sp)
                 }
@@ -809,21 +839,19 @@ fun MedevacItem(
                 ) {
                     Text(
                         text = "L9 = ${
-                            if (medevac?.line9 == "Clear terrain") "-" else medevac?.line9.orEmpty()
+                            if (medevac?.line9 == "Clear terrain") "-" 
+                            else medevac?.line9.orEmpty()
                         }",
                         color = Color.White,
                         fontSize = 14.sp
                     )
-
                 }
-
             }
         }
     }
 }
 
-// ==================== Menu Final Tutela ====================
-// ==================== Menu Final Tutela ====================
+// Menú Final Tutela ===============================================================================
 @Composable
 fun TutelaList(
     tutelas: SnapshotStateList<TutelaData?> = mutableStateListOf(),
@@ -836,7 +864,6 @@ fun TutelaList(
     isMeasuringMode: MutableState<Boolean>,
     polylineManager: MutableState<PolylineAnnotationManager?>,
 ) {
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -851,6 +878,7 @@ fun TutelaList(
                     color = Color.Gray
                 )
             }
+
         } else {
             items(tutelas.size) { idx ->
                 TutelaItem(
@@ -870,6 +898,7 @@ fun TutelaList(
     }
 }
 
+// Estilo Tutela ===================================================================================
 @Composable
 fun TutelaItem(
     tutela: TutelaData?,
@@ -883,6 +912,7 @@ fun TutelaItem(
     measuringMarker: MutableState<Point?>,
     polylineManager: MutableState<PolylineAnnotationManager?>,
 ) {
+
     val isTutelaMode = remember { mutableStateOf(true) }
     val report = tutela?.tipo == TutelaTipo.REPORT
 
@@ -903,13 +933,12 @@ fun TutelaItem(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // === Encabezado ===
+            // Encabezado
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
                 if (report) {
                     Text(
                         text = "INFORME TUTELA",
@@ -926,6 +955,7 @@ fun TutelaItem(
                     )
                 }
 
+                // Eliminación de informes
                 IconButton(
                     onClick = {
                         tutela?.puesto?.let {
@@ -941,6 +971,7 @@ fun TutelaItem(
                                     measuringMarker = measuringMarker,
 
                                 )
+
                             } else {
                                 removeMarkerAndCancelMeasure(
                                     point = it,
@@ -964,10 +995,11 @@ fun TutelaItem(
                 }
             }
 
-            // === Coordenadas del puesto principal ===
+            // Coordenada de puesto
             tutela?.puesto?.let {
                 Text(
-                    text = "PUESTO = ${"%.5f".format(it.latitude())}, ${"%.5f".format(it.longitude())}",
+                    text = "PUESTO = ${"%.5f".format(it.latitude())}," +
+                            " ${"%.5f".format(it.longitude())}",
                     color = Color.LightGray,
                     fontSize = 14.sp
                 )
@@ -975,7 +1007,7 @@ fun TutelaItem(
 
             HorizontalDivider(color = Color.DarkGray, thickness = 1.dp)
 
-            // === Tiempo + Unidad + Tamaño ===
+            // Datos
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -987,7 +1019,8 @@ fun TutelaItem(
                 Text("E = ${tutela?.equipo}", color = Color.White, fontSize = 14.sp)
                 tutela?.localizacion?.let { loc ->
                     Text(
-                        "L = ${"%.5f".format(loc.latitude())}, ${"%.5f".format(loc.longitude())}",
+                        "L = ${"%.5f".format(loc.latitude())}," +
+                                " ${"%.5f".format(loc.longitude())}",
                         color = Color.White,
                         fontSize = 14.sp
                     )
@@ -1006,192 +1039,10 @@ fun TutelaItem(
         }
     }
 }
+// FIN Componentes =================================================================================
 
-/*@Composable
-fun TutelaList(
-    tutelas: SnapshotStateList<TutelaData?> = mutableStateListOf(),
-    markers: SnapshotStateList<MarkerData>,
-    pointAnnotationManager: PointAnnotationManager,
-    mapView: MapView?,
-    distantRequest: (Point) -> Unit,
-    onDismissRequest: () -> Unit,
-    measuringMarker: MutableState<Point?>,
-    isMeasuringMode: MutableState<Boolean>,
-    polylineManager: MutableState<PolylineAnnotationManager?>,
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        if (tutelas.isEmpty()) {
-            item {
-                Text(
-                    "No hay informes registrados",
-                    modifier = Modifier.padding(16.dp),
-                    color = Color.Gray
-                )
-            }
-        } else {
-            items(tutelas.size) { idx ->
-                TutelaItem(
-                    tutela = tutelas[idx],
-                    tutelas = tutelas,
-                    markers = markers,
-                    mapView = mapView,
-                    polylineManager = polylineManager,
-                    measuringMarker = measuringMarker,
-                    isMeasuringMode = isMeasuringMode,
-                    pointAnnotationManager = pointAnnotationManager,
-                    distantRequest = { distantRequest -> distantRequest(distantRequest) },
-                    onDismissRequest = onDismissRequest
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun TutelaItem(
-    tutela: TutelaData?,
-    markers: SnapshotStateList<MarkerData>,
-    tutelas: SnapshotStateList<TutelaData?>,
-    pointAnnotationManager: PointAnnotationManager,
-    mapView: MapView?,
-    distantRequest: (Point) -> Unit,
-    onDismissRequest: () -> Unit,
-    isMeasuringMode: MutableState<Boolean>,
-    measuringMarker: MutableState<Point?>,
-    polylineManager: MutableState<PolylineAnnotationManager?>,
-
-    ) {
-    val isTutelaMode = remember { mutableStateOf(true) }
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp, horizontal = 12.dp)
-            .clickable {
-                tutela?.puesto?.let { distantRequest(it) }
-                cameraMove(mapView, tutela?.puesto)
-                onDismissRequest()
-            },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1C)),
-        border = BorderStroke(1.dp, Color.DarkGray)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Encabezado con coordenadas y distancia
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "INFORME TUTELA",
-                    color = Color.Cyan,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
-
-                IconButton(
-                    onClick = {
-                        tutela?.puesto?.let {
-                            removeMarkerAndCancelMeasure(
-                                point = it,
-                                markers = markers,
-                                tutelas = tutelas,
-                                polylineManager = polylineManager,
-                                annotationManager = pointAnnotationManager,
-                                isTutelaMode = isTutelaMode,
-                                isMeasuringMode = isMeasuringMode,
-                                measuringMarker = measuringMarker,
-
-                                )
-                        }
-                    }
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Eliminar marcador",
-                        tint = Color.Red
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                horizontalAlignment = Alignment.Start
-            ) {
-                tutela?.tiempo?.let {
-                    Text(
-                        text = "T = ${tutela?.tiempo}",
-                        color = Color.LightGray,
-                        fontSize = 14.sp
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "U = ${tutela?.unidad}",
-                        color = Color.LightGray,
-                        fontSize = 14.sp
-                    )
-
-                    tutela?.distancia?.let {
-                        Text(
-                            text = "T = ${tutela?.tamanio}",
-                            color = Color.Gray,
-                            fontSize = 12.sp
-                        )
-                    }
-
-                }
-
-            }
-
-            HorizontalDivider(color = Color.DarkGray, thickness = 1.dp)
-
-            // Resto de líneas (agrupadas en filas)
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Text(
-                        "E = ${tutela?.equipo}",
-                        color = Color.White, fontSize = 14.sp
-                    )
-                    Text(
-                        "L = ${tutela?.localizacion}",
-                        color = Color.White, fontSize = 14.sp
-                    )
-                    Text(
-                        "A = ${tutela?.actitud}",
-                        color = Color.White, fontSize = 14.sp
-                    )
-                }
-
-            }
-        }
-    }
-}*/
-
-
-//Interacción "volver" del submenu.
+// Funciones Auxiliares ============================================================================
+// Son usadas para poder volver atrás en los menús sin que se cierre completo
 private fun pushBack(backStack: MutableList<() -> Unit>, handler: () -> Unit) {
     backStack.add(handler)
 }

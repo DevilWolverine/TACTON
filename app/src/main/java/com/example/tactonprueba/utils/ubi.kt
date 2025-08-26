@@ -45,13 +45,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.Color
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -74,8 +72,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -101,8 +101,8 @@ import com.mapbox.maps.plugin.locationcomponent.DefaultLocationProvider
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.turf.TurfConstants
 import com.mapbox.turf.TurfMeasurement
-import kotlinx.coroutines.CoroutineScope
 import kotlin.math.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -110,68 +110,23 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 
+// Modelo De Datos =================================================================================
+data class UTMCoord(val x: Double, val y: Double, val zone: Int, val band: Char)
 
-
-@OptIn(ExperimentalCoroutinesApi::class)
-@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-@RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-suspend fun centerMapOnUserLocation(context: Context, mapView: MapView): Location? {
-    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-
-    val location = suspendCancellableCoroutine<Location?> { cont ->
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { cont.resume(it, onCancellation = null) }
-            .addOnFailureListener {
-                Log.e("ubi.kt", "Error obteniendo ubicación: ${it.message}")
-                cont.resume(null, onCancellation = null)
-            }
-    }
-
-    location?.let {
-        val userPoint = Point.fromLngLat(it.longitude, it.latitude)
-        mapView.mapboxMap.setCamera(
-            CameraOptions.Builder()
-                .center(userPoint)
-                .zoom(16.0)
-                .build()
-        )
-    } ?: Log.w("ubi.kt", "No se encontró la ubicación actual.")
-
-    return location
-}
-
-// =============== Prueba orientacion movil ===============
-@SuppressLint("MissingPermission")
-fun Context.orientationFlow(): Flow<Float> = callbackFlow {
-    val sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-
-    val listener = object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent) {
-            val rotationMatrix = FloatArray(9)
-            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-            val orientation = FloatArray(3)
-            SensorManager.getOrientation(rotationMatrix, orientation)
-            val azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
-            trySend(azimuth)
-        }
-
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    }
-
-    sensorManager.registerListener(listener, rotationSensor, SensorManager.SENSOR_DELAY_UI)
-
-    awaitClose { sensorManager.unregisterListener(listener) }
-}
-
+// Componentes =====================================================================================
+// Caja Coordenadas ================================================================================
 @Composable
 fun UTMCoordinateBox(modifier: Modifier = Modifier, location: Point?) {
-    var showUTM by remember { mutableStateOf(true) }  // Alterna entre UTM y LatLon
+    var showUTM by remember { mutableStateOf(true) }
     val utm = location?.let { latLonToUTM(it.latitude(), it.longitude()) }
 
     Box(
         modifier = modifier
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, enabled = location != null) {
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                enabled = location != null
+            ) {
                 showUTM = !showUTM
             }
             .background(
@@ -182,15 +137,18 @@ fun UTMCoordinateBox(modifier: Modifier = Modifier, location: Point?) {
             .width(180.dp)
 
     ) {
-
+        // Cambia las coordenadas de UTM a Lat/Lon
         val text = if (location == null) {
             "Localizando..."
         } else {
             if (showUTM) {
                 val huso = "${utm!!.zone}${utm.band}"
-                "Indicativo: Devil\nCoordenadas UTM\n$huso X: ${utm.x.toInt()} Y: ${utm.y.toInt()} "
+                "Indicativo: Devil\nCoordenadas UTM\n$huso" +
+                        " X: ${utm.x.toInt()} Y: ${utm.y.toInt()} "
             } else {
-                "Indicativo: Devil\nCoordenadas Lat/Lon\nX: ${"%.5f".format(location.latitude())} Y: ${"%.5f".format(location.longitude())}"
+                "Indicativo: Devil\nCoordenadas Lat/Lon\n" +
+                        "X: ${"%.5f".format(location.latitude())} " +
+                        "Y: ${"%.5f".format(location.longitude())}"
             }
         }
 
@@ -202,6 +160,7 @@ fun UTMCoordinateBox(modifier: Modifier = Modifier, location: Point?) {
     }
 }
 
+// Pantalla Introducción Coordenadas ===============================================================
 @Composable
 fun CoordinateInputPanel(
     isVisible: Boolean,
@@ -217,23 +176,22 @@ fun CoordinateInputPanel(
 ) {
     var mode by remember { mutableStateOf("UTM") }
 
-    // UTM State
+    // Para UTM
     var x by remember { mutableStateOf("") }
     var y by remember { mutableStateOf("") }
     var band by remember { mutableStateOf(TextFieldValue("30T")) }
-
-    // Lat/Lon State
-    var lat by remember { mutableStateOf("") }
-    var lon by remember { mutableStateOf("") }
-
     val zoneBandFocusRequester = remember { FocusRequester() }
     var shouldSelectZoneBand by remember { mutableStateOf(false) }
 
+    // Para Lat/Lon
+    var lat by remember { mutableStateOf("") }
+    var lon by remember { mutableStateOf("") }
 
     // Focus requesters para cada campo UTM
     val xFocus = remember { FocusRequester() }
     val yFocus = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    // Formateo de las coordenadas
     val handleGoToUTM = {
         val parsedX = x.replace(',', '.').toDoubleOrNull()
         val parsedY = y.replace(',', '.').toDoubleOrNull()
@@ -241,6 +199,7 @@ fun CoordinateInputPanel(
         val parsedZone = match?.groups?.get(1)?.value?.toIntOrNull()
         val bandChar = match?.groups?.get(2)?.value?.firstOrNull()
 
+        // Ir al punto según coordenadas UTM
         if (parsedX != null && parsedY != null && parsedZone != null && bandChar != null) {
             goToUTM(
                 mapView,
@@ -260,6 +219,7 @@ fun CoordinateInputPanel(
         onDismissRequest()
     }
 
+    // Ir al punto según coordenadas Lat/Lon
     val handleGoToLatLon = {
         val normalizedLat = lat.replace(',', '.')
         val normalizedLon = lon.replace(',', '.')
@@ -283,6 +243,7 @@ fun CoordinateInputPanel(
         onDismissRequest()
     }
 
+    // Personalización de los campos de texto
     val customTextColors =  TextFieldDefaults.colors(
         focusedTextColor = Color.White,
         unfocusedTextColor = Color.White,
@@ -293,7 +254,7 @@ fun CoordinateInputPanel(
         unfocusedContainerColor = Color.Transparent
     )
 
-    //Mantiene los valores por defecto cada vez que se oculta el panel
+    // Mantiene los valores por defecto cada vez que se oculta el panel
     LaunchedEffect(isVisible) {
         if (isVisible) {
             x = ""
@@ -315,6 +276,7 @@ fun CoordinateInputPanel(
         }
     }
 
+    // Animación de aparición
     AnimatedVisibility(
         visible = isVisible,
         enter = fadeIn(tween(300)) + scaleIn(tween(300)),
@@ -344,6 +306,7 @@ fun CoordinateInputPanel(
                     .clickable(enabled = false) {}
             ) {
 
+                // Título
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -362,17 +325,16 @@ fun CoordinateInputPanel(
 
                 Spacer(Modifier.height(4.dp))
 
-                // Selector de modo
                 Row(Modifier
                     .fillMaxWidth(0.8f)
                     .height(48.dp)
                     .background(Color.Gray, shape = RoundedCornerShape(12.dp))
                     .padding(4.dp)
                     .align(Alignment.CenterHorizontally),
-                    horizontalArrangement = Arrangement.Center/*Arrangement.SpaceEvenly*/
+                    horizontalArrangement = Arrangement.Center
 
                 ) {
-
+                    // Botones selector de modo
                     Button(
                         onClick = { mode = "UTM" },
                         modifier = Modifier
@@ -403,6 +365,7 @@ fun CoordinateInputPanel(
 
                 Spacer(Modifier.height(16.dp))
 
+                // Cambio de introducción de coordenadas
                 if (mode == "UTM") {
                     Column (modifier = Modifier.align(Alignment.CenterHorizontally)) {
                         Column (modifier = Modifier.align(Alignment.CenterHorizontally)) {
@@ -414,11 +377,13 @@ fun CoordinateInputPanel(
                                 colors = customTextColors,
                                 modifier = Modifier
                                     .focusRequester(xFocus),
-                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                                ImeAction.Next),
                                 keyboardActions = KeyboardActions(
                                     onNext = { yFocus.requestFocus() }
                                 )
                             )
+
                             OutlinedTextField(
                                 value = y,
                                 onValueChange = { y = it },
@@ -427,11 +392,13 @@ fun CoordinateInputPanel(
                                 colors = customTextColors,
                                 modifier = Modifier
                                     .focusRequester(yFocus),
-                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                                ImeAction.Next),
                                 keyboardActions = KeyboardActions(
                                     onNext = { zoneBandFocusRequester.requestFocus() }
                                 )
                             )
+
                             OutlinedTextField(
                                 value = band,
                                 onValueChange = { band = it.copy(it.text.uppercase()) },
@@ -445,7 +412,8 @@ fun CoordinateInputPanel(
                                             shouldSelectZoneBand = true
                                         }
                                     },
-                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+                                keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                                ImeAction.Done),
                                 keyboardActions = KeyboardActions(
                                     onDone = { handleGoToUTM() }
                                 )
@@ -462,11 +430,12 @@ fun CoordinateInputPanel(
                                 .align(Alignment.CenterHorizontally),
                             contentAlignment = Alignment.Center
                         ) {
-                            //Boton Ir a destino UTM
+                            //Botón Ir a destino UTM
                             Button(
                                 modifier = Modifier.matchParentSize(),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B1818)),
+                                colors = ButtonDefaults.buttonColors(containerColor =
+                                                                        Color(0xFF4B1818)),
                                 onClick = { handleGoToUTM() }
                             ) {
                                 Text("Ir al destino")
@@ -475,11 +444,8 @@ fun CoordinateInputPanel(
                     }
 
                 } else {
-
                     Column (modifier = Modifier.align(Alignment.CenterHorizontally)) {
-
                         Column {
-
                             OutlinedTextField(
                                 value = lat,
                                 onValueChange = { lat = it },
@@ -488,7 +454,8 @@ fun CoordinateInputPanel(
                                 colors = customTextColors,
                                 modifier = Modifier
                                     .focusRequester(xFocus),
-                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                                keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                                ImeAction.Next),
                                 keyboardActions = KeyboardActions(
                                     onNext = { yFocus.requestFocus() }
                                 )
@@ -502,7 +469,8 @@ fun CoordinateInputPanel(
                                 colors = customTextColors,
                                 modifier = Modifier
                                     .focusRequester(yFocus),
-                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+                                keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                                ImeAction.Done),
                                 keyboardActions = KeyboardActions(
                                     onDone = { handleGoToLatLon() }
                                 )
@@ -519,11 +487,12 @@ fun CoordinateInputPanel(
                                 .align(Alignment.CenterHorizontally),
                             contentAlignment = Alignment.Center
                         ) {
-                            //Boton Ir a destino LAT/LON
+                            // Botón Ir a destino LAT/LON
                             Button(
                                 modifier = Modifier.matchParentSize(),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B1818)),
+                                colors = ButtonDefaults.buttonColors(containerColor =
+                                                                        Color(0xFF4B1818)),
                                 onClick = { handleGoToLatLon() }
                             ) {
                                 Text("Ir al destino")
@@ -537,11 +506,12 @@ fun CoordinateInputPanel(
     }
 }
 
+// ToolBar Superior ================================================================================
 @SuppressLint("MissingPermission", "NewApi")
 @Composable
-fun Botonera(
+fun ToolBar(
     context: Context,
-    mapView: MapView,
+    mapView: MapView?,
     coroutineScope: CoroutineScope,
     isMenuOpen: MutableState<Boolean>,
     isCoordOpen: MutableState<Boolean>,
@@ -565,7 +535,7 @@ fun Botonera(
             isMedevacMode.value ||
             isTutelaMode.value
 
-    // ========= Botón para abrir el menú ========
+    // Botón para abrir el menú
     IconButton(
         onClick = { isMenuOpen.value = !isMenuOpen.value },
         enabled = isRemoving
@@ -577,7 +547,7 @@ fun Botonera(
         )
     }
 
-    // ========== Botón para ir a coordenadas ==========
+    // Botón para ir a coordenadas
     IconButton(
         onClick = {
             isCoordOpen.value = !isCoordOpen.value
@@ -594,7 +564,7 @@ fun Botonera(
         )
     }
 
-    // ========== Botón para fijar ubicación ==========
+    // Botón para fijar ubicación
     IconButton(
         onClick = {
             isFollowingLocation.value = !isFollowingLocation.value
@@ -607,22 +577,23 @@ fun Botonera(
                 }
 
                 // 2. Bloquear gestos del mapa
-                mapView.gestures.updateSettings {
+                mapView?.gestures?.updateSettings {
                     scrollEnabled = false
                 }
 
-                mapView.location.setLocationProvider(DefaultLocationProvider(context))
+                mapView?.location?.setLocationProvider(DefaultLocationProvider(context))
 
             } else {
                 Toast.makeText(context, "Modo Libre", Toast.LENGTH_SHORT).show()
                 // 4. Volver al estado libre (gestos ON)
-                mapView.gestures.updateSettings {
+                mapView?.gestures?.updateSettings {
                     scrollEnabled = true
                 }
             }
         },
         enabled = isRemoving
     ) {
+        // Botón para fijar ubicación
         Icon(
             painter = painterResource(
                 id = if (!isFollowingLocation.value)
@@ -638,9 +609,9 @@ fun Botonera(
             tint = if (change) Color.Gray else LocalContentColor.current
         )
     }
-
 }
 
+// Brújula =========================================================================================
 @SuppressLint("MissingPermission")
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
@@ -650,19 +621,19 @@ fun CustomCompass(
     modifier: Modifier = Modifier,
     heading: Float,
 ) {
-    // Estado del bearing del mapa
+    // Estado de la orientación del mapa
     val bearing by northMapBearing(mapView)
 
-    // Estado → modo de la brújula
+    // Modo de la brújula
     var useDeviceOrientation by remember { mutableStateOf(false) }
 
     val coroutineScope = rememberCoroutineScope()
 
     // Calcular la rotación
     val rotation = if (useDeviceOrientation) {
-        -heading -44f// 🔹 brújula al norte magnético del móvil
+        -heading -44f
     } else {
-        -bearing - 44f // 🔹 brújula al norte del mapa (con ajuste de icono)
+        -bearing - 44f
     }
 
     Box(
@@ -674,7 +645,7 @@ fun CustomCompass(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
                 onClick = {
-                    // 🔹 Centrar mapa y resetear bearing
+                    //Centrar mapa y resetear orientación
                     mapView.mapboxMap.setCamera(
                         CameraOptions.Builder().bearing(0.0).build()
                     )
@@ -683,7 +654,7 @@ fun CustomCompass(
                     }
                 },
                 onLongClick = {
-                    // 🔹 Cambiar modo de brújula
+                    //Cambiar modo de brújula
                     useDeviceOrientation = !useDeviceOrientation
                     if (useDeviceOrientation) {
                         Toast.makeText(context, "Modo Dispositivo", Toast.LENGTH_SHORT).show()
@@ -700,6 +671,7 @@ fun CustomCompass(
         )
     }
 
+    //Animación de la brújula
     LaunchedEffect(useDeviceOrientation, heading) {
         if (useDeviceOrientation) {
             mapView.mapboxMap.easeTo(
@@ -715,6 +687,7 @@ fun CustomCompass(
 
 }
 
+// Actualiza Orientación ===========================================================================
 @Composable
 fun northMapBearing(mapView: MapView): State<Float> {
     val bearingState = remember { mutableFloatStateOf(0f) }
@@ -731,7 +704,64 @@ fun northMapBearing(mapView: MapView): State<Float> {
 
     return bearingState
 }
+// FIN Componentes =================================================================================
 
+// Funciones Auxiliares ============================================================================
+// Función centrado de mapa y actualización ========================================================
+@OptIn(ExperimentalCoroutinesApi::class)
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+@RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION,
+    Manifest.permission.ACCESS_COARSE_LOCATION])
+suspend fun centerMapOnUserLocation(context: Context, mapView: MapView?): Location? {
+    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+    val location = suspendCancellableCoroutine<Location?> { cont ->
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener { cont.resume(it, onCancellation = null) }
+            .addOnFailureListener {
+                Log.e("ubi.kt", "Error obteniendo ubicación: ${it.message}")
+                cont.resume(null, onCancellation = null)
+            }
+    }
+
+    location?.let {
+        val userPoint = Point.fromLngLat(it.longitude, it.latitude)
+        mapView?.mapboxMap?.setCamera(
+            CameraOptions.Builder()
+                .center(userPoint)
+                .zoom(16.0)
+                .build()
+        )
+    } ?: Log.w("ubi.kt", "No se encontró la ubicación actual.")
+
+    return location
+}
+
+// Prueba orientación móvil ========================================================================
+@SuppressLint("MissingPermission")
+fun Context.orientationFlow(): Flow<Float> = callbackFlow {
+    val sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+
+    val listener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            val rotationMatrix = FloatArray(9)
+            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+            val orientation = FloatArray(3)
+            SensorManager.getOrientation(rotationMatrix, orientation)
+            val azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
+            trySend(azimuth)
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
+
+    sensorManager.registerListener(listener, rotationSensor, SensorManager.SENSOR_DELAY_UI)
+
+    awaitClose { sensorManager.unregisterListener(listener) }
+}
+
+// Actualiza Ubicación =============================================================================
 @SuppressLint("MissingPermission")
 fun locationUpdatesFlow(context: Context): Flow<Location?> = callbackFlow {
     val fusedClient = LocationServices.getFusedLocationProviderClient(context)
@@ -753,24 +783,21 @@ fun locationUpdatesFlow(context: Context): Flow<Location?> = callbackFlow {
     }
 }
 
-// ============ Centrado de camara al punto ==============
+// Centrar Cámara ==================================================================================
 fun cameraMove(
     mapView: MapView?,
     point: Point?
 ) {
-        // 🔹 Aquí centras la cámara
-        mapView?.mapboxMap?.setCamera(
-            CameraOptions.Builder()
-                .center(point)
-                .zoom(16.0)
-                .build()
-        )
+    mapView?.mapboxMap?.setCamera(
+        CameraOptions.Builder()
+            .center(point)
+            .zoom(16.0)
+            .build()
+    )
 }
 
-// =========================================
-// Funciones Ir a Coordenadas
-// =========================================
-
+// Funciones Ir A Coordenadas ======================================================================
+// UTM
 fun goToUTM(
     mapView: MapView,
     x: Double,
@@ -786,7 +813,6 @@ fun goToUTM(
 ) {
     val (lat, lon) = utmToLatLon(x, y, zone, hemisphere)
     val point = Point.fromLngLat(lon, lat)
-
 
     cameraMove(mapView, point)
 
@@ -806,12 +832,11 @@ fun goToUTM(
         onMarkerClicked = onMarkerClicked,
     )
 
-
-    // Incrementar ID para el siguiente
     markerIdCounter.value++
 
 }
 
+// Lat/Lon
 fun goToLatLon(
     mapView: MapView,
     latitude: Double,
@@ -842,17 +867,12 @@ fun goToLatLon(
         onMarkerClicked = onMarkerClicked,
     )
 
-    // Incrementar ID para el siguiente
     markerIdCounter.value++
 
 }
 
-// =========================================
-// 🔽 Conversión LAT/LON → UTM y viceversa
-// =========================================
-
-data class UTMCoord(val x: Double, val y: Double, val zone: Int, val band: Char)
-
+// Conversión de coordenadas =======================================================================
+// Lat/Lon a UTM
 fun latLonToUTM(lat: Double, lon: Double): UTMCoord {
     val a = 6378137.0 // Radio ecuatorial
     val e = 0.0818191908 // Excentricidad
@@ -918,6 +938,7 @@ fun latLonToUTM(lat: Double, lon: Double): UTMCoord {
     return UTMCoord(x, y, zone, band)
 }
 
+// UTM a Lat/Lon
 fun utmToLatLon(x: Double, y: Double, zone: Int, band: Char): Pair<Double, Double> {
     val a = 6378137.0
     val e = 0.0818191908

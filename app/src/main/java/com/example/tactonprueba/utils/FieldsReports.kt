@@ -38,7 +38,11 @@ import androidx.compose.ui.zIndex
 import com.mapbox.geojson.Point
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
 
+// Modelo De Datos =================================================================================
+// Tipos de informes tutela
+enum class TutelaTipo { REPORT, OBJETIVO }
 
+// Datos de un marcador Medevac
 data class MedevacData(
     val line1: Point?,
     val line2: String,
@@ -52,8 +56,7 @@ data class MedevacData(
     val distancia: Double?
 )
 
-enum class TutelaTipo { REPORT, OBJETIVO }
-
+// Datos de un marcador Tutela
 data class TutelaData(
     val puesto: Point?,
     val tiempo: String = formatFecHor(),
@@ -66,41 +69,43 @@ data class TutelaData(
     val tipo: TutelaTipo,
 )
 
-// ========================= Funciones Tutela ==============
-// ========================== Panel Principal ======================
+// Componentes =====================================================================================
+// Componente Tutela ===============================================================================
+// Informe Tutela ==================================================================================
 @Composable
 fun TutelaReportPanel(
     tutela: TutelaData,
     onDismiss: () -> Unit,
     selectedMarker: PointAnnotation,
 ) {
-
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f)) // oscurece el fondo
+            .background(Color.Black.copy(alpha = 0.5f))
             .zIndex(3f)
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
             ) { onDismiss() },
         contentAlignment = Alignment.Center
+
     ) {
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .clickable(enabled = false) {} // Evita cierre al pulsar dentro
+                .clickable(enabled = false) {}
+
         ) {
             Column(
                 modifier = Modifier
                     .padding(20.dp)
-                    .verticalScroll(rememberScrollState()), // scroll automático pantallas pequeñas
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
+
             ) {
-                // Encabezado
+                // Encabezado según tipo
                 Row (modifier = Modifier.fillMaxWidth().padding(start = 50.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically){
@@ -146,8 +151,8 @@ fun TutelaReportPanel(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     when (selectedMarker.point) {
+                        // Puesto de observación
                         tutela.puesto -> {
-                            // Marcador de puesto (aliado)
                             Icon(
                                 Icons.Default.PinDrop,
                                 contentDescription = "Puesto Icon",
@@ -156,15 +161,15 @@ fun TutelaReportPanel(
                             )
 
                             Text(
-                                "${"%.5f".format(tutela.puesto?.latitude() ?: 0.0)}, " +
-                                        "${"%.5f".format(tutela.puesto?.longitude() ?: 0.0)}",
+                                "${"%.5f".format(tutela.puesto.latitude())}, ${"%.5f".format(tutela.puesto.longitude())}",
                                 color = Color.LightGray,
                                 fontSize = 14.sp
                             )
+
                         }
 
+                        // Localización de observación
                         tutela.localizacion -> {
-                            // Marcador de localización (enemigo/secundario)
                             Icon(
                                 Icons.Default.PinDrop,
                                 contentDescription = "Localización Icon",
@@ -173,18 +178,19 @@ fun TutelaReportPanel(
                             )
 
                             Text(
-                                "${"%.5f".format(tutela?.localizacion?.latitude() ?: 0.0)}, " +
-                                        "${"%.5f".format(tutela?.localizacion?.longitude() ?: 0.0)}",
+                                "${"%.5f".format(tutela.localizacion.latitude())}, " +
+                                        "${"%.5f".format(tutela.localizacion.longitude())}",
                                 color = Color.LightGray,
                                 fontSize = 14.sp
                             )
+
                         }
                     }
                 }
 
                 HorizontalDivider(color = Color.DarkGray, thickness = 1.dp)
 
-                // Auxiliar para mostrar cada línea
+                // Estilo de las líneas
                 @Composable
                 fun LineItem(label: String, value: String) {
                     Row {
@@ -204,8 +210,8 @@ fun TutelaReportPanel(
                 LineItem("4. E: ", tutela.equipo)
 
                 when (selectedMarker.point) {
+
                     tutela.puesto -> {
-                        // Marcador de puesto (aliado)
                         LineItem(
                             "5. L: ",
                             if (tutela.localizacion != null)
@@ -218,9 +224,12 @@ fun TutelaReportPanel(
                     tutela.localizacion -> {
                         // Marcador de localización (enemigo/secundario)
                         LineItem(
-                            "5. Siendo Observado desde: \n${"%.5f".format(tutela.puesto?.latitude())}, ${"%.5f".format(tutela.puesto?.longitude())}",""
+                            "5. Siendo Observado desde: " +
+                                    "\n${"%.5f".format(tutela.puesto?.latitude())}," +
+                                    " ${"%.5f".format(tutela.puesto?.longitude())}",""
                         )
                     }
+
                 }
 
                 LineItem("6. A: ", tutela.actitud)
@@ -242,25 +251,24 @@ fun TutelaReportPanel(
 }
 
 
-// ========================== Panel de edición ======================
+// Formulario Tutela ===============================================================================
 @Composable
 fun TutelaFormPanel(
-    puestoPoint: Point,                 // 👈 posición principal (puesto)
+    puestoPoint: Point,
     onDismissRequest: () -> Unit,
     onSubmit: (TutelaData) -> Unit,
-    onPickLocation: () -> Unit,         // 👈 callback para activar selección en mapa
-    selectedLocalizacion: MutableState<Point?>,       // 👈 coordenada elegida en mapa
+    onPickLocation: () -> Unit,
+    selectedLocalizacion: MutableState<Point?>,
     modifier: Modifier = Modifier,
-    isPickingLocalizacion: MutableState<Boolean>
 ) {
-    val tiempo = formatFecHor()
-    var unidad by remember { mutableStateOf("Infantería") }
-    var tamanio by remember { mutableStateOf("") }
-    var equipo by remember { mutableStateOf("Fusil") }
-    var actitud by remember { mutableStateOf("Desconocida") }
 
-    val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
+    val tiempo = formatFecHor()
+    var actitud by remember { mutableStateOf("Desconocida") }
+    var equipo by remember { mutableStateOf("Fusil") }
+    var tamanio by remember { mutableStateOf("") }
+    var unidad by remember { mutableStateOf("Infantería") }
 
     Box(
         modifier = modifier.fillMaxSize().zIndex(3f),
@@ -277,12 +285,10 @@ fun TutelaFormPanel(
                     .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
                 Column ( modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ){
-                    // L1 - Tiempo
                     Text(
                         "Informe TUTELA",
                         color = Color.White,
@@ -294,10 +300,11 @@ fun TutelaFormPanel(
                         "Puesto: ${"%.5f".format(puestoPoint.latitude())}, ${"%.5f".format(puestoPoint.longitude())}",
                         color = Color.LightGray
                     )
+
                 }
+
                 HorizontalDivider(color = Color.Cyan.copy(alpha = 0.6f), thickness = 1.dp)
 
-                // L1 - Tiempo
                 Text("1. Tiempo: $tiempo", color = Color.LightGray)
 
                 Column {
@@ -307,10 +314,11 @@ fun TutelaFormPanel(
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
                     )
+
                     OutlinedButton(
                         onClick = {
-                            onDismissRequest()              // 👈 cerrar panel
-                            onPickLocation()                // 👈 activar selección en mapa (cierra + activa listener)
+                            onDismissRequest()
+                            onPickLocation()
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
@@ -319,194 +327,156 @@ fun TutelaFormPanel(
                             containerColor = Color.Black.copy(alpha = 0.3f),
                             contentColor = Color.White
                         )
-                    )
-                    {
+                    ) {
                         if (selectedLocalizacion.value != null) {
                             Text(
                                 "${"%.5f".format(selectedLocalizacion.value?.latitude())}, " +
-                                        "${"%.5f".format(selectedLocalizacion.value?.longitude())}",
+                                "${"%.5f".format(selectedLocalizacion.value?.longitude())}",
                                 color = Color.White
                             )
+
                         } else {
                             Text("Seleccionar en el mapa", color = Color.LightGray)
+
                         }
                     }
                 }
 
-                // L2 - Unidad
                 Column {
                     Text("3. Unidad", color = Color.Gray, fontSize = 12.sp)
+
                     StyledTextField(
                         value = unidad,
                         onValueChange = { unidad = it },
                         label = "",
-                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                        ImeAction.Next),
                         keyboardActions = KeyboardActions(
                             onNext = { focusManager.moveFocus(FocusDirection.Down) }
                         )
                     )
+
                 }
 
-                // L3 - Tamaño
                 Column {
                     Text("4. Tamaño", color = Color.Gray, fontSize = 12.sp)
+
                     StyledTextField(
                         value = tamanio,
                         onValueChange = { tamanio = it },
                         label = "Tamaño",
-                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                        ImeAction.Next),
                         keyboardActions = KeyboardActions(
                             onNext = { focusManager.moveFocus(FocusDirection.Down) }
                         )
                     )
+
                 }
 
-                // L4 - Equipo
                 Column {
                     Text("5. Equipo", color = Color.Gray, fontSize = 12.sp)
+
                     StyledTextField(
                         value = equipo,
                         onValueChange = { equipo = it },
                         label = "",
-                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                        ImeAction.Next),
                         keyboardActions = KeyboardActions(
                             onNext = { focusManager.moveFocus(FocusDirection.Down) }
                         )
                     )
+
                 }
 
                 Column {
                     Text("7. Actitud", color = Color.Gray, fontSize = 12.sp)
+
                     StyledTextField(
                         value = actitud,
                         onValueChange = { actitud = it },
                         label = "",
-                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                        keyboardOptions = KeyboardOptions.Default.copy(imeAction =
+                                                                        ImeAction.Next),
                         keyboardActions = KeyboardActions(
                             onNext = { focusManager.moveFocus(FocusDirection.Down) }
                         )
                     )
+
                 }
 
                 Spacer(Modifier.height(12.dp))
 
-                // Botones
                 Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                    TextButton(onClick = {
-                        // ✅ Resetear coordenadas al cancelar
-                        selectedLocalizacion.value = null
-                        onDismissRequest()
-                    }) {
+                    // Resetear coordenadas al cancelar
+                    TextButton(
+                        onClick = {
+                            selectedLocalizacion.value = null
+                            onDismissRequest()
+                        }
+                    ) {
                         Text("Cancelar", color = Color.LightGray)
-                    }
-                    Button(onClick = {
-                        val tutela = TutelaData(
-                            puesto = puestoPoint,
-                            tiempo = tiempo,
-                            unidad = unidad,
-                            tamanio = tamanio,
-                            equipo = equipo,
-                            localizacion = selectedLocalizacion.value,
-                            actitud = actitud,
-                            distancia = null,
-                            tipo = TutelaTipo.REPORT
-                        )
-                        onSubmit(tutela)  // 👈 solo lo envías
-                    }) {
-                        Text("Enviar")
+
                     }
 
+                    Button(
+                        onClick = {
+                            val tutela = TutelaData(
+                                puesto = puestoPoint,
+                                tiempo = tiempo,
+                                unidad = unidad,
+                                tamanio = tamanio,
+                                equipo = equipo,
+                                localizacion = selectedLocalizacion.value,
+                                actitud = actitud,
+                                distancia = null,
+                                tipo = TutelaTipo.REPORT
+                            )
+
+                            onSubmit(tutela)
+                        }
+                    ) {
+                        Text("Enviar")
+
+                    }
                 }
             }
         }
     }
 }
+// FIN Tutela ======================================================================================
 
-
-
-// ========================== Funciones auxiliares ======================
-@Composable
-fun StyledTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    modifier: Modifier = Modifier,
-    keyboardOptions: KeyboardOptions,
-    keyboardActions: KeyboardActions
-) {
-    var textValue by remember { mutableStateOf(TextFieldValue(value)) }
-    var shouldSelectAll by remember { mutableStateOf(false) }
-
-    val customTextColors = TextFieldDefaults.colors(
-        focusedTextColor = Color.White,
-        unfocusedTextColor = Color.White,
-        focusedLabelColor = Color.White,
-        unfocusedLabelColor = Color.LightGray,
-        cursorColor = Color.White,
-        focusedContainerColor = Color.Transparent,
-        unfocusedContainerColor = Color.Transparent
-    )
-
-    OutlinedTextField(
-        value = textValue,
-        onValueChange = {
-            textValue = it
-            onValueChange(it.text)
-        },
-        label = { Text(label) },
-        singleLine = true,
-        textStyle = LocalTextStyle.current.copy(color = Color.White),
-        colors = customTextColors,
-        modifier = modifier.fillMaxWidth().onFocusEvent { focusState ->
-            if (focusState.isFocused) {
-                shouldSelectAll = true
-            }
-        }
-    )
-
-    // Selección automática de todo el texto
-    LaunchedEffect(shouldSelectAll) {
-        if (shouldSelectAll) {
-            textValue = textValue.copy(selection = TextRange(0, textValue.text.length))
-            shouldSelectAll = false
-        }
-    }
-}
-// ========================== Fin Funciones Tutela ==========================
-
-
-// ========================= Funciones Medevac ==============================
-// ========================== Panel Principal ===============================
+// Componente Medevac ==============================================================================
+// Informe Medevac =================================================================================
 @Composable
 fun MedevacReportPanel(
     medevac: MedevacData,
     onDismiss: () -> Unit,
-    selectedMarker: PointAnnotation
 ) {
-    // Cerrar al hacer clic fuera
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f)) // oscurece el fondo
+            .background(Color.Black.copy(alpha = 0.5f))
             .zIndex(3f)
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
             ) { onDismiss() },
         contentAlignment = Alignment.Center
+
     ) {
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF2C2C2C)),
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .clickable(enabled = false) {} // evitar que el Card cierre al pulsar dentro
+                .clickable(enabled = false) {}
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Encabezado
                 Row (modifier = Modifier.fillMaxWidth().padding(start = 50.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically){
@@ -525,38 +495,50 @@ fun MedevacReportPanel(
                     )
                 }
 
-
                 HorizontalDivider(color = Color.Red.copy(alpha = 0.6f), thickness = 1.dp)
 
-                // Función auxiliar para mostrar cada línea
                 @Composable
                 fun LineItem(label: String, value: String) {
                     Column {
                         Text(label, color = Color.Gray, fontSize = 12.sp)
+
                         Text(value, color = Color.White, fontSize = 15.sp)
+
                     }
                 }
 
                 // Contenido del informe
                 LineItem(
                     "1. Zona De Recogida",
-                    "${"%.5f".format(medevac.line1?.latitude())}, ${"%.5f".format(medevac.line1?.longitude())}"
+                    "${"%.5f".format(medevac.line1?.latitude())}," +
+                    " ${"%.5f".format(medevac.line1?.longitude())}"
                 )
+
                 LineItem("2. Indicativo / Frecuencia", medevac.line2)
+
                 LineItem("3. Número De Pacientes", medevac.line3)
+
                 LineItem("4. Equipo Especial Requerido", medevac.line4)
+
                 LineItem("5. Estado De Paciente", medevac.line5)
+
                 LineItem("6. Seguridad En Zona", medevac.line6)
+
                 LineItem("7. Método De Marcaje", medevac.line7)
+
                 LineItem("8. Tipo De Paciente", medevac.line8)
+
                 LineItem("9. Terreno / Obstáculos En Zona De Recogida", medevac.line9)
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Botón cerrar
-                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     TextButton(onClick = onDismiss) {
                         Text("Cerrar", color = Color.Red.copy(alpha = 0.8f))
+
                     }
                 }
             }
@@ -564,7 +546,7 @@ fun MedevacReportPanel(
     }
 }
 
-// ========================== Panel de edición ======================
+// Formulario Medevac ==============================================================================
 @Composable
 fun MedevacFormPanel(
     point: Point,
@@ -572,9 +554,10 @@ fun MedevacFormPanel(
     onSubmit: (MedevacData) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Estados
-    var l2usuario by remember { mutableStateOf("Usuario") }
+    val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
     var l2freq by remember { mutableStateOf("300.00") }
+    var l2usuario by remember { mutableStateOf("Usuario") }
     var l3cantidad by remember { mutableStateOf("1") }
     var l3precedence by remember { mutableStateOf("A - Urgente") }
     var l4 by remember { mutableStateOf("A - Ninguno") }
@@ -583,8 +566,6 @@ fun MedevacFormPanel(
     var l7 by remember { mutableStateOf("A - Paineles") }
     var l8 by remember { mutableStateOf("A - Fuerzas Militares Aliadas") }
     var l9 by remember { mutableStateOf("Despejado") }
-    val scrollState = rememberScrollState()
-    val focusManager = LocalFocusManager.current
 
     Box(
         modifier = modifier.fillMaxSize().zIndex(3f),
@@ -610,7 +591,6 @@ fun MedevacFormPanel(
                     color = Color.LightGray
                 )
 
-                // L2
                 Column {
                     Text(
                         "2. Indicativo / Radio Frecuencia",
@@ -625,25 +605,35 @@ fun MedevacFormPanel(
                     ) {
 
                         StyledTextField(
+                            modifier = Modifier.weight(0.5f),
+                            keyboardOptions =
+                                KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                            keyboardActions =
+                                KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
                             value = l2usuario,
                             onValueChange = { l2usuario = it },
                             label = "Indicativo",
-                            modifier = Modifier.weight(0.5f),
-                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+
                         )
+
                         StyledTextField(
+                            modifier = Modifier.weight(0.5f),
+                            keyboardOptions =
+                                KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                            keyboardActions =
+                                KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
                             value = l2freq,
                             onValueChange = { l2freq = it },
                             label = "Frecuencia",
-                            modifier = Modifier.weight(0.5f),
-                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
                         )
+
                     }
                 }
 
-                // L3
                 Column {
                     Text(
                         "3. Pacientes por prioridad",
@@ -656,35 +646,66 @@ fun MedevacFormPanel(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         StyledTextField(
+                            modifier = Modifier.weight(0.25f),
+                            keyboardOptions =
+                                KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                            keyboardActions =
+                                KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
                             value = l3cantidad,
                             onValueChange = { l3cantidad = it },
                             label = "Cantidad",
-                            modifier = Modifier.weight(0.25f),
-                            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+
                         )
 
-                        l3precedence = DropdownInline(
+                        l3precedence = dropdownInline(
                             opciones = listOf("A - Urgente", "B - Prioritario", "R - Rutina"),
                             modifier = Modifier.weight(0.75f)
                         )
+
                     }
                 }
 
-                // L4
-                l4 = DropdownLine("4. Equipo Especial Requerido", listOf("A - Ninguno", "B - Grua", "C - Extractor", "D - Ventilador"))
+                l4 = dropdownLine(
+                    "4. Equipo Especial Requerido",
+                    listOf(
+                        "A - Ninguno",
+                        "B - Grua",
+                        "C - Extractor",
+                        "D - Ventilador"
+                    )
+                )
 
-                // L5
-                l5 = DropdownLine("5. Estado De Paciente", listOf("L - Incapacitado (Camilla)"," A - Ambulatorio (Caminando)", "E - Acompañante (ej. niños)"))
+                l5 = dropdownLine(
+                    "5. Estado De Paciente",
+                    listOf(
+                        "L - Incapacitado (Camilla)",
+                        " A - Ambulatorio (Caminando)",
+                        "E - Acompañante (ej. niños)"
+                    )
+                )
 
-                // L6
-                l6 = DropdownLine("6. Seguridad En Zona", listOf("N - No Enemigo", "P - Posible Enemigo", "E - Enemigo En Area", "X - Zona Recogida Caliente - Escolta Requerida"))
+                l6 = dropdownLine(
+                    "6. Seguridad En Zona",
+                    listOf(
+                        "N - No Enemigo",
+                        "P - Posible Enemigo",
+                        "E - Enemigo En Area",
+                        "X - Zona Recogida Caliente - Escolta Requerida"
+                    )
+                )
 
-                // L7
-                l7 = DropdownLine("7. Método De Marcaje", listOf("A - Paineles", "B - Pyro", "C - Humo", "D - Ninguno"))
+                l7 = dropdownLine(
+                    "7. Método De Marcaje",
+                    listOf("A - Paineles",
+                        "B - Pyro",
+                        "C - Humo",
+                        "D - Ninguno"
+                    )
+                )
 
-                // L8
-                l8 = DropdownLine(
+                l8 = dropdownLine(
                     "8. Tipo de Paciente",
                     listOf(
                         "A - Fuerzas Militares Aliadas",
@@ -696,55 +717,69 @@ fun MedevacFormPanel(
                     )
                 )
 
-                // L9
                 StyledTextField(
+                    keyboardOptions =
+                        KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                    keyboardActions =
+                        KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        ),
                     value = l9,
                     onValueChange = { l9 = it },
                     label = " 9.Terreno / Obstáculos En Zona De Recogida",
-                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+
                 )
 
-                // Botones
-                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     TextButton(onClick = onDismissRequest) {
                         Text("Cancelar", color = Color.LightGray)
+
                     }
-                    Button(onClick = {
-                        val medevac = MedevacData(
-                            line1 = point,
-                            line2 = "$l2usuario / $l2freq",
-                            line3 = "$l3cantidad $l3precedence",
-                            line4 = l4,
-                            line5 = l5,
-                            line6 = l6,
-                            line7 = l7,
-                            line8 = l8,
-                            line9 = l9,
-                            distancia = null
-                        )
-                        onSubmit(medevac)
-                    }) {
+
+                    Button(
+                        onClick = {
+                            val medevac = MedevacData(
+                                line1 = point,
+                                line2 = "$l2usuario / $l2freq",
+                                line3 = "$l3cantidad $l3precedence",
+                                line4 = l4,
+                                line5 = l5,
+                                line6 = l6,
+                                line7 = l7,
+                                line8 = l8,
+                                line9 = l9,
+                                distancia = null
+                            )
+                            onSubmit(medevac)
+                        }
+                    ) {
                         Text("Enviar")
+
                     }
                 }
             }
         }
     }
 }
+// FIN Medevac =====================================================================================
 
-// ========================== Funciones auxiliares ======================
+// Funciones Auxiliares ============================================================================
+// Contenedor Desplegable ==========================================================================
 @Composable
-fun DropdownLine(
+fun dropdownLine(
     label: String,
     opciones: List<String>,
     modifier: Modifier = Modifier
 ): String {
+    var buttonWidth by remember { mutableIntStateOf(0) }
     var expanded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(opciones.first()) }
-    var buttonWidth by remember { mutableStateOf(0) }
 
-    Column(modifier = modifier) {   // 👈 aquí usamos el modifier que venga de fuera
+    Column(modifier = modifier) {
+
         // Etiqueta
         Text(
             text = label,
@@ -753,22 +788,23 @@ fun DropdownLine(
             modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
         )
 
+        // Caja de selección
         Box {
-            // Caja de selección
             OutlinedButton(
                 onClick = { expanded = true },
                 modifier = Modifier
-                    .fillMaxWidth()   // 👈 ahora sí ocupa solo lo que diga el padre
+                    .fillMaxWidth()
                     .height(48.dp)
                     .onGloballyPositioned { coords ->
                         buttonWidth = coords.size.width
                     },
                 shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(1.dp, Color.DarkGray),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color(0xFF2C2C2C),
-                    contentColor = Color.White
-                ),
+                colors =
+                    ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color(0xFF2C2C2C),
+                        contentColor = Color.White
+                    ),
                 contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
                 Row(
@@ -777,12 +813,17 @@ fun DropdownLine(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(selected, color = Color.White)
+
                     Icon(
-                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        imageVector =
+                            if (expanded) Icons.Default.KeyboardArrowUp
+                            else Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
                         tint = Color.LightGray
                     )
+
                 }
+
             }
 
             // Menú desplegable
@@ -793,11 +834,11 @@ fun DropdownLine(
                     .width(with(LocalDensity.current) { buttonWidth.toDp() })
                     .background(Color(0xFF2C2C2C))
             ) {
+
                 opciones.forEach { opcion ->
                     DropdownMenuItem(
                         text = {
-                            Text(
-                                opcion,
+                            Text(opcion,
                                 color = if (opcion == selected) Color.Cyan else Color.White
                             )
                         },
@@ -806,21 +847,25 @@ fun DropdownLine(
                             expanded = false
                         }
                     )
+
                 }
             }
         }
     }
+
     return selected
+
 }
 
+// Botón desplegable ============================================================================
 @Composable
-fun DropdownInline(
+fun dropdownInline(
     opciones: List<String>,
     modifier: Modifier = Modifier
 ): String {
+    var buttonWidth by remember { mutableIntStateOf(0) }
     var expanded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(opciones.first()) }
-    var buttonWidth by remember { mutableStateOf(0) }
 
     Box(modifier = modifier) {
         OutlinedButton(
@@ -844,8 +889,11 @@ fun DropdownInline(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(selected, color = Color.White)
+
                 Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    imageVector =
+                        if (expanded) Icons.Default.KeyboardArrowUp
+                        else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
                     tint = Color.LightGray
                 )
@@ -859,11 +907,11 @@ fun DropdownInline(
                 .width(with(LocalDensity.current) { buttonWidth.toDp() })
                 .background(Color(0xFF2C2C2C))
         ) {
+
             opciones.forEach { opcion ->
                 DropdownMenuItem(
                     text = {
-                        Text(
-                            opcion,
+                        Text(opcion,
                             color = if (opcion == selected) Color.Cyan else Color.White
                         )
                     },
@@ -875,7 +923,60 @@ fun DropdownInline(
             }
         }
     }
-    return selected
-}
-// ========================== Fin Funciones Medevac ==========================
 
+    return selected
+
+}
+
+
+
+// Estilo Caja Texto ===============================================================================
+@Composable
+fun StyledTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    keyboardOptions: KeyboardOptions,
+    keyboardActions: KeyboardActions
+) {
+    var shouldSelectAll by remember { mutableStateOf(false) }
+    var textValue by remember { mutableStateOf(TextFieldValue(value)) }
+
+    val customTextColors = TextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        focusedLabelColor = Color.White,
+        unfocusedLabelColor = Color.LightGray,
+        cursorColor = Color.White,
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent
+    )
+
+    OutlinedTextField(
+        value = textValue,
+        onValueChange = {
+            textValue = it
+            onValueChange(it.text)
+        },
+        label = { Text(label) },
+        singleLine = true,
+        textStyle = LocalTextStyle.current.copy(color = Color.White),
+        colors = customTextColors,
+        modifier = modifier.fillMaxWidth().onFocusEvent { focusState ->
+            if (focusState.isFocused) {
+                shouldSelectAll = true
+            }
+        },
+
+    )
+
+    // Selección automática del contenido
+    LaunchedEffect(shouldSelectAll) {
+        if (shouldSelectAll) {
+            textValue = textValue.copy(selection = TextRange(0, textValue.text.length))
+            shouldSelectAll = false
+        }
+    }
+
+}
