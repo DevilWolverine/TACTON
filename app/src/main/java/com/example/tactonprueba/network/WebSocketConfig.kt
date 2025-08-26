@@ -3,7 +3,6 @@ package com.example.tactonprueba.network
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.runtime.MutableState
-import com.example.tactonprueba.utils.cameraMove
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.FeatureCollection
 import com.mapbox.geojson.Point
@@ -24,7 +23,7 @@ class WebSocketConfig(
 ) {
     private val animationJobs = mutableMapOf<String, Job>()
 
-    fun handleIncomingMessage(msg: PositionMessage, mapViewRef: MapView?) {
+    fun handleIncomingMessage(msg: PositionMessage) {
         if (msg.type != "position") return
 
         val oldPoint = remoteUsers[msg.user]?.first
