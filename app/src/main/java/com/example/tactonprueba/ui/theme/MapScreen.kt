@@ -1,7 +1,7 @@
 package com.example.tactonprueba.ui.theme
 
-import PositionMessage
-import WebSocketClient
+import com.example.tactonprueba.network.PositionMessage
+import com.example.tactonprueba.network.WebSocketClient
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Bitmap
@@ -181,8 +181,8 @@ fun MapScreen() {
                         pulsingEnabled = true
                         pulsingColor = 1
                         locationPuck = LocationPuck2D(
-                            topImage = navBitmap?.let { ImageHolder.from(it) },
-                            bearingImage = navBitmap?.let { ImageHolder.from(it) }
+                            topImage = navBitmap.let { ImageHolder.from(it) },
+                            bearingImage = navBitmap.let { ImageHolder.from(it) }
                         )
                         puckBearing = PuckBearing.HEADING
                         puckBearingEnabled = true

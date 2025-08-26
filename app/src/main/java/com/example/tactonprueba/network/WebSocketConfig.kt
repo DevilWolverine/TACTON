@@ -1,7 +1,5 @@
 package com.example.tactonprueba.network
 
-import PositionMessage
-import WebSocketClient
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.runtime.MutableState
@@ -69,7 +67,7 @@ class WebSocketConfig(
                     delay(16)
                 }
             }
-            cameraMove(mapViewRef, newPoint)
+
         } else {
             remoteUsers[msg.user] = newPoint to newBearing
             val features = remoteUsers.map { (id, pair) ->
