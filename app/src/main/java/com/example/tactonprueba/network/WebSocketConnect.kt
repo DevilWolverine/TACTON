@@ -1,8 +1,15 @@
 
 import android.util.Log
-import com.example.tactonprueba.ui.theme.PositionMessage
 import com.google.gson.Gson
+import com.mapbox.geojson.Point
 import okhttp3.*
+
+data class PositionMessage(
+    val type: String,
+    val user: String,
+    val point: Point,
+    val bearing: Double? = null
+)
 
 class WebSocketClient(
     private val onMessageReceived: (PositionMessage) -> Unit

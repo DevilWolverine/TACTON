@@ -1,16 +1,14 @@
 package com.example.tactonprueba.ui.theme
 
+import PositionMessage
 import WebSocketClient
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Bitmap
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +22,8 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.tactonprueba.R
+import com.example.tactonprueba.network.MapStyleConfig
+import com.example.tactonprueba.network.WebSocketConfig
 import com.example.tactonprueba.utils.ToolBar
 import com.example.tactonprueba.utils.BottomPanelMenu
 import com.example.tactonprueba.utils.CoordinateInputPanel
@@ -53,16 +53,10 @@ import com.example.tactonprueba.utils.placeMarker
 import com.example.tactonprueba.utils.updateMarkerIconByPoint
 import com.google.gson.Gson
 import com.google.gson.JsonPrimitive
-import com.mapbox.geojson.Feature
-import com.mapbox.geojson.FeatureCollection
 import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.ImageHolder
 import com.mapbox.maps.MapView
-import com.mapbox.maps.extension.style.expressions.dsl.generated.get
-import com.mapbox.maps.extension.style.layers.addLayer
-import com.mapbox.maps.extension.style.layers.addLayerAbove
-import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.PuckBearing
@@ -81,22 +75,8 @@ import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.scalebar.scalebar
 import com.mapbox.turf.TurfConstants
 import com.mapbox.turf.TurfMeasurement
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.min
-
-// WebSocket ======================================================================================
-data class PositionMessage(
-    val type: String,
-    val user: String,
-    val point: Point,
-    val bearing: Double? = null
-)
-
 
 @SuppressLint("MissingPermission")
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
@@ -165,86 +145,22 @@ fun MapScreen() {
     val warningIdCounter = remember { mutableIntStateOf(1) }
 
     // WebSocket ===================================================================================
-    val remoteMarker = remember { mutableStateOf<PointAnnotation?>(null) }
-    // WebSocket ===================================================================================
     val remoteUsers = remember { mutableStateMapOf<String, Pair<Point, Double>>() }
     val userSourceRef = remember { mutableStateOf<GeoJsonSource?>(null) }
-// Guardamos jobs activos por usuario
-    val animationJobs = remember { mutableMapOf<String, Job>() }
 
-    val wsClient = remember {
-        WebSocketClient { msg: PositionMessage ->
-            if (msg.type == "position") {
-                val oldPoint = remoteUsers[msg.user]?.first
-                val oldBearing = remoteUsers[msg.user]?.second ?: (msg.bearing ?: 0.0)
-                val newPoint = msg.point
-                val newBearing = msg.bearing ?: 0.0
-
-                // Cancelar animación previa de este usuario si existe
-                animationJobs[msg.user]?.cancel()
-
-                if (oldPoint != null) {
-                    // 🔹 Animación frame-by-frame con easing
-                    animationJobs[msg.user] = CoroutineScope(Dispatchers.Main).launch {
-                        val duration = 300L
-                        val startTime = System.currentTimeMillis()
-                        while (isActive) {
-                            val t = (System.currentTimeMillis() - startTime).toFloat() / duration
-                            val fraction = min(1f, t) // clamp [0..1]
-
-                            // Easing tipo smoothstep
-                            val eased = fraction * fraction * (3 - 2 * fraction)
-
-                            // Interpolar posición
-                            val lat = oldPoint.latitude() +
-                                    (newPoint.latitude() - oldPoint.latitude()) * eased
-                            val lng = oldPoint.longitude() +
-                                    (newPoint.longitude() - oldPoint.longitude()) * eased
-                            val interpolatedPoint = Point.fromLngLat(lng, lat)
-
-                            // Interpolar bearing con shortest path
-                            val interpolatedBearing = interpolateBearing(oldBearing, newBearing, eased)
-
-                            // Guardar valores interpolados
-                            remoteUsers[msg.user] = interpolatedPoint to interpolatedBearing
-
-                            // Reconstruir features y refrescar el GeoJsonSource
-                            val features = remoteUsers.map { (id, pair) ->
-                                val (pt, brg) = pair
-                                Feature.fromGeometry(pt).apply {
-                                    addStringProperty("user", id)
-                                    addNumberProperty("bearing", brg)
-                                }
-                            }
-                            userSourceRef.value?.featureCollection(
-                                FeatureCollection.fromFeatures(features)
-                            )
-
-                            if (fraction >= 1f) break
-                            delay(16) // ~60 fps
-                        }
-                    }
-                    cameraMove(mapViewRef.value, newPoint)
-                } else {
-                    // 🔹 Primer punto recibido (sin animación)
-                    remoteUsers[msg.user] = newPoint to newBearing
-
-                    val features = remoteUsers.map { (id, pair) ->
-                        val (pt, brg) = pair
-                        Feature.fromGeometry(pt).apply {
-                            addStringProperty("user", id)
-                            addNumberProperty("bearing", brg)
-                        }
-                    }
-                    userSourceRef.value?.featureCollection(
-                        FeatureCollection.fromFeatures(features)
-                    )
-                }
-            }
-        }
+    val wsConfig = remember {
+        WebSocketConfig(
+            remoteUsers = remoteUsers,
+            userSourceRef = userSourceRef,
+            coroutineScope = coroutineScope
+        )
     }
 
-
+    val wsClient = remember {
+        WebSocketClient { msg ->
+            wsConfig.handleIncomingMessage(msg, mapViewRef.value)
+        }
+    }
     // Fin Variables ===============================================================================
 
     // Contenedor Principal ========================================================================
@@ -278,8 +194,6 @@ fun MapScreen() {
             },
             modifier = Modifier.fillMaxSize(),
             update = { mapView ->
-                // 👇 Aquí ya NO cargas el estilo
-                // puedes dejarlo vacío o meter ajustes menores, por ejemplo:
                 if (!isCenteredMap.value) {
                     coroutineScope.launch {
                         centerMapOnUserLocation(context, mapView)
@@ -288,47 +202,6 @@ fun MapScreen() {
                 }
             }
         )
-
-        /*AndroidView(
-    factory = { ctx ->
-        MapView(ctx).apply {
-            // Configuración inicial mapeado mapbox
-            MapInit.provideAccessToken(ctx)
-            compass.enabled = false
-            scalebar.enabled = false
-            attribution.enabled = false
-            // Configuración de la flecha de orientación
-            location.updateSettings {
-                enabled = true
-                pulsingEnabled = true
-                pulsingColor = 1
-                locationPuck = LocationPuck2D(
-                    topImage = navBitmap?.let { ImageHolder.from(it) },
-                    bearingImage = navBitmap?.let { ImageHolder.from(it) }
-                )
-                puckBearing = PuckBearing.HEADING
-                puckBearingEnabled = true
-            }
-
-            mapViewRef.value = this
-            pointAnnotationManager.value = annotations.createPointAnnotationManager()
-        }
-    },
-    modifier = Modifier.fillMaxSize(),
-    update = { mapView ->
-        // Cargar estilo de mapa
-        mapView.mapboxMap.loadStyle(currentStyle.value)
-        // Centrado de mapa
-        if (!isCenteredMap.value) {
-            coroutineScope.launch {
-                centerMapOnUserLocation(context, mapView)
-                isCenteredMap.value = true
-            }
-        }
-    }
-
-
-)*/
 
 // Referencia Mapa =============================================================================
         mapViewRef.value?.let { mapView ->
@@ -967,7 +840,7 @@ fun MapScreen() {
                 currentLocation.value = point
 
                 // 🔹 Enviar posición por WebSocket en cada actualización
-                val myUser = "Wolf" // 👉 aquí defines tu nombre
+                val myUser = "Devil" // 👉 aquí defines tu nombre
                 val msg = PositionMessage(
                     type = "position",
                     user = myUser,
@@ -1003,39 +876,6 @@ fun MapScreen() {
         }
     }
 
-    /*LaunchedEffect(isFollowingLocation.value) {
-locationUpdatesFlow(context).collect { loc ->
-    if (loc != null) {
-        val point = Point.fromLngLat(loc.longitude, loc.latitude)
-        currentLocation.value = point
-
-        if (isFollowingLocation.value) {
-            // Mantener zoom actual
-            val currentZoom = mapViewRef.value?.mapboxMap?.cameraState?.zoom ?: 16.0
-
-            mapViewRef.value?.mapboxMap?.easeTo(
-                CameraOptions.Builder()
-                    .center(point)
-                    .zoom(currentZoom)
-                    .build(),
-                MapAnimationOptions.mapAnimationOptions {
-                    // Animación suave
-                    duration(500)
-                }
-            )
-
-            // Activa la orientación desde el dispositivo
-            mapViewRef.value?.location?.updateSettings {
-                enabled = true
-                pulsingEnabled = true
-                puckBearing = PuckBearing.HEADING
-                puckBearingEnabled = true
-            }
-        }
-    }
-}
-}*/
-
 // Mantiene la orientación del dispositivo =====================================================
     LaunchedEffect(Unit) {
         context.orientationFlow().collect { azimuth ->
@@ -1054,19 +894,19 @@ locationUpdatesFlow(context).collect { loc ->
                     WindowInsetsCompat.Type.systemBars()
         )
 
-// Para que vuelva con gesto y no sea permanente
+    // Para que vuelva con gesto y no sea permanente
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-// Iteracción con marcadores ===================================================================
+    // Iteracción con marcadores
     LaunchedEffect(mapViewRef.value) {
         mapViewRef.value?.let { mapView ->
             pointAnnotationManager.value = mapView.annotations.createPointAnnotationManager()
         }
     }
 
-// Interacción con el estilo del mapa ==========================================================
+    // Interacción con el estilo del mapa
     LaunchedEffect(mapViewRef.value) {
         mapViewRef.value?.let { mapView ->
             mapView.mapboxMap.getStyle { _ ->
@@ -1075,57 +915,20 @@ locationUpdatesFlow(context).collect { loc ->
         }
     }
 
-
-// Conexión WebSocket ==========================================================================
+    // Conexión WebSocket
     LaunchedEffect(Unit) {
-        wsClient.connect("192.168.1.32", 8080) // IP de tu Ubuntu Server
-// 🔹 Identifícate con tu usuario
-        val myUser = "Wolf" // 👉 aquí pones tu nombre
-        val initMsg = """{"type":"hello","user":"$myUser"}"""
-        wsClient.sendMessage(initMsg)
+        wsConfig.connectAndIdentify(wsClient, "Wolf")  // 👈 delegamos en WebSocketConfig
     }
 
-// Enviar posición =============================================================================
-
-// Doble acción para cerrar aplicación =========================================================
+    // Cerrar aplicación
     DoubleBackToExitApp()
 
-// 🔹 Cargar estilo una sola vez
-    LaunchedEffect(mapViewRef.value) {
+    // Aplicar estilo
+    LaunchedEffect(mapViewRef.value, currentStyle.value) {
         mapViewRef.value?.mapboxMap?.loadStyle(currentStyle.value) { style ->
-
-            // 🔹 Crear GeoJsonSource vacío
-            val source = GeoJsonSource.Builder("remote-users-source")
-                .featureCollection(FeatureCollection.fromFeatures(emptyList()))
-                .build()
-            style.addSource(source)
-            userSourceRef.value = source  // 👈 guardamos referencia global
-
-            // 🔹 Añadir icono por defecto
-            style.addImage("remote-user-icon", navBitmap)
-
-            // 🔹 Añadir capa para usuarios
-            val symbolLayer = com.mapbox.maps.extension.style.layers.generated.SymbolLayer(
-                "remote-users-layer",
-                "remote-users-source"
-            ).apply {
-                iconImage("remote-user-icon")
-                iconAllowOverlap(true)
-                iconIgnorePlacement(true)
-                textField(get("user"))   // mostrar el nombre del usuario
-                textOffset(listOf(0.0, 1.5))
-                textSize(12.0)
-                iconRotate(get("bearing"))
-            }
-            style.addLayer(symbolLayer)
+            MapStyleConfig.applyRemoteUsersStyle(style, userSourceRef, navBitmap)
         }
     }
 
 
 }
-
-private fun CoroutineScope.interpolateBearing(oldBearing: Double, newBearing: Double, fraction: Float): Double {
-    var delta = (newBearing - oldBearing + 540) % 360 - 180
-    return (oldBearing + delta * fraction + 360) % 360
-}
-
