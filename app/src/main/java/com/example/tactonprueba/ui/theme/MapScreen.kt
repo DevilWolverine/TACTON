@@ -23,6 +23,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.tactonprueba.R
 import com.example.tactonprueba.network.MapStyleConfig
+import com.example.tactonprueba.network.MarkerEdit
 import com.example.tactonprueba.network.MarkerMessage
 import com.example.tactonprueba.network.WebSocketConfig
 import com.example.tactonprueba.network.WebSocketHolder
@@ -133,6 +134,7 @@ fun MapScreen() {
     val isTutelaMode = remember { mutableStateOf(false) }
     val isUTMVisible = remember { mutableStateOf(true) }
     var isPlacingMarker = remember { mutableStateOf(false) }
+    val hasLocation = remember { mutableStateOf(false) }
 
     // Manejo de listas ============================================================================
     val markerIdCounter = remember { mutableIntStateOf(1) }
@@ -164,7 +166,6 @@ fun MapScreen() {
             wsConfig.handleIncomingRawMessage(
                 rawMsg = rawMsg,
                 pointAnnotationManager = pointAnnotationManager.value,
-                defaultMarkerBitmap = defaultMarkerBitmap,
                 markerList = markerList,
                 medevacList = medevacList,
                 tutelaList = tutelaList,
@@ -173,12 +174,8 @@ fun MapScreen() {
                 tutelaIcon = tutelaIcon,
                 warningIcon = warningIcon,
                 isTutelaMode = isTutelaMode,
-                markerIdCounter = markerIdCounter,
                 measuringMarker = measuringMarker,
                 polylineManager = polylineManager,
-                medevacIdCounter = medevacIdCounter,
-                tutelaIdCounter = tutelaIdCounter,
-                waringIdCounter = warningIdCounter,
                 currentLocation = currentLocation,
                 selectedMarker = selectedMarker,
                 onMarkerClicked = { clicked ->
@@ -534,11 +531,21 @@ fun MapScreen() {
                                 )
                             )
 
+                            val edit = MarkerEdit(
+                                id = markerList.size + 1,
+                                name = "Medevac ${medevacList.size}",
+                                createdBy = "Operador",
+                                distance = medevacList.last()?.distancia,
+                                point = medevacPoint.value!!,
+                                type = MarkerType.MEDEVAC,
+                                icon = null
+                            )
+
                             val markerMsg = MarkerMessage(
-                                id = markerList.last().point,
+                                id = markerList.size + 1,
                                 type = "create",
                                 user = "Devil",
-                                marker = markerList.last(),
+                                marker = edit,
                                 medevac = medevacList.last()
                             )
 
@@ -595,11 +602,21 @@ fun MapScreen() {
                                 )
                             )
 
+                            val edit = MarkerEdit(
+                                id = markerList.size + 1,
+                                name = "Tutela ${(tutelaList.size+1)/2}",
+                                createdBy = "Operador",
+                                distance = tutelaList.last()?.distancia,
+                                point = tutelaPoint.value!!,
+                                type = MarkerType.TUTELA,
+                                icon = null
+                            )
+
                             val markerMsg = MarkerMessage(
-                                id = markerList.last().point,
+                                id = markerList.size + 1,
                                 type = "create",
                                 user = "Devil",
-                                marker = markerList.last(),
+                                marker = edit,
                                 tutela = tutelaList.last()
 
                             )
@@ -637,11 +654,21 @@ fun MapScreen() {
                                     )
                                 )
 
+                                val edit = MarkerEdit(
+                                    id = markerList.size + 1,
+                                    name = "Observación ${(tutelaList.size)/2}",
+                                    createdBy = "Tutela ${(tutelaList.size)/2}",
+                                    distance = tutelaList.last()?.distancia,
+                                    point = loc,
+                                    type = MarkerType.TUTELA,
+                                    icon = null
+                                )
+
                                 val markerMsg = MarkerMessage(
-                                    id = markerList.last().point,
+                                    id = markerList.size + 1,
                                     type = "create",
                                     user = "Devil",
-                                    marker = markerList.last(),
+                                    marker = edit,
                                     tutela = tutelaList.last()
 
                                 )
@@ -725,12 +752,21 @@ fun MapScreen() {
 
                     val icon = bitmapToBase64(bmp)
 
+                    val edit = MarkerEdit(
+                        id = markerList.size + 1,
+                        name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
+                        createdBy = "Devil",
+                        distance = tutelaList.last()?.distancia,
+                        point = point,
+                        type = MarkerType.NORMAL,
+                        icon = icon
+                    )
+
                     val markerMsg = MarkerMessage(
-                        id = markerList.last().point,
+                        id = markerList.size + 1,
                         type = "create",
                         user = "Devil",
-                        icon = icon,
-                        marker = markerList.last(),
+                        marker = edit,
 
                         )
 
@@ -773,12 +809,21 @@ fun MapScreen() {
 
                     val icon = bitmapToBase64(bmp)
 
+                    val edit = MarkerEdit(
+                        id = markerList.size + 1,
+                        name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
+                        createdBy = "Devil",
+                        distance = markerList.last()?.distance,
+                        point = point,
+                        type = MarkerType.NORMAL,
+                        icon = icon
+                    )
+
                     val markerMsg = MarkerMessage(
-                        id = markerList.last().point,
+                        id = markerList.size + 1,
                         type = "create",
                         user = "Devil",
-                        icon = icon,
-                        marker = markerList.last(),
+                        marker = edit,
 
                     )
 
@@ -880,14 +925,14 @@ fun MapScreen() {
     }
 
 // Actualización de posición
-    LaunchedEffect(isFollowingLocation.value) {
+    LaunchedEffect(Unit) {
         locationUpdatesFlow(context).collect { loc ->
             if (loc != null) {
                 val point = Point.fromLngLat(loc.longitude, loc.latitude)
                 currentLocation.value = point
 
                 // 🔹 Enviar posición por WebSocket en cada actualización
-                val myUser = "Devil" // 👉 aquí defines tu nombre
+                val myUser = "Devil"
                 val msg = PositionMessage(
                     type = "position",
                     user = myUser,
@@ -896,22 +941,21 @@ fun MapScreen() {
                 )
                 wsClient.sendMessage(Gson().toJson(msg))
 
-                if (isFollowingLocation.value) {
-                    // Mantener zoom actual
-                    val currentZoom = mapViewRef.value?.mapboxMap?.cameraState?.zoom ?: 16.0
+                if (!hasLocation.value) {
+                    hasLocation.value = true   // 👉 primera vez que tenemos ubicación
+                }
 
+                if (isFollowingLocation.value) {
+                    val currentZoom = mapViewRef.value?.mapboxMap?.cameraState?.zoom ?: 16.0
                     mapViewRef.value?.mapboxMap?.easeTo(
                         CameraOptions.Builder()
                             .center(point)
                             .zoom(currentZoom)
                             .build(),
                         MapAnimationOptions.mapAnimationOptions {
-                            // Animación suave
                             duration(500)
                         }
                     )
-
-                    // Activa la orientación desde el dispositivo
                     mapViewRef.value?.location?.updateSettings {
                         enabled = true
                         pulsingEnabled = true
@@ -963,8 +1007,10 @@ fun MapScreen() {
     }
 
     // Conexión WebSocket
-    LaunchedEffect(Unit) {
-        wsConfig.connectAndIdentify(wsClient, "Devil")  // 👈 delegamos en WebSocketConfig
+    LaunchedEffect(hasLocation.value) {
+        if (hasLocation.value) {
+            wsConfig.connectAndIdentify(wsClient, "Devil")
+        }
     }
 
     // Cerrar aplicación

@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.Log
-import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.tactonprueba.utils.MarkerData
@@ -44,18 +43,35 @@ data class PositionMessage(
 
 // Creación de marcador
 data class MarkerMessage(
-    val id: Point,
+    val id: Int,
     val type: String = "create",
     val user: String,
     val icon: String? = null,
-    val marker: MarkerData,
+    val marker: MarkerEdit,
     val medevac: MedevacData? = null,
     val tutela: TutelaData? = null,
+)
+
+data class MarkerEdit(
+    val id: Int,
+    val name: String,
+    val point: Point,
+    val icon: String?,
+    val iconRes: Int? = null,
+    val createdBy: String,
+    val distance: Double?,
+    val type: MarkerType,
 )
 
 data class DeleteMessage(
     val id: Point,
     val type: String = "delete"
+)
+
+data class InitStateMessage(
+    val type: String = "init_state",
+    val users: Map<String, Any>?,
+    val markers: List<MarkerMessage>
 )
 
 
@@ -71,9 +87,7 @@ class WebSocketConfig(
     fun handleIncomingRawMessage(
         rawMsg: String,
         pointAnnotationManager: PointAnnotationManager?,
-        defaultMarkerBitmap: Bitmap,
         markerList: SnapshotStateList<MarkerData>,
-        onMarkerClicked: (annotation: PointAnnotation) -> Unit,
         selectedMarker: MutableState<PointAnnotation?>,
         medevacList: SnapshotStateList<MedevacData?>,
         tutelaList: SnapshotStateList<TutelaData?>,
@@ -82,19 +96,52 @@ class WebSocketConfig(
         tutelaIcon: Bitmap?,
         isMedevacMode: MutableState<Boolean>,
         isTutelaMode: MutableState<Boolean>,
-        markerIdCounter: MutableIntState,
-        medevacIdCounter: MutableIntState,
-        tutelaIdCounter: MutableIntState,
-        waringIdCounter: MutableIntState,
         currentLocation: MutableState<Point?>,
         measuringMarker: MutableState<Point?>,
         polylineManager: MutableState<PolylineAnnotationManager?>,
+        onMarkerClicked: (annotation: PointAnnotation) -> Unit,
     ) {
         try {
             val gson = Gson()
             val base = gson.fromJson(rawMsg, Map::class.java) // miramos solo el "type"
 
             when (base["type"]) {
+                "init_state" -> {
+                    val msg = gson.fromJson(rawMsg, InitStateMessage::class.java)
+                    msg.markers.forEach { marker ->
+                        pointAnnotationManager?.let { mgr ->
+                            val fakeCreate = MarkerMessage(
+                                id = marker.id,
+                                type = "create",
+                                user = "server",
+                                medevac = marker.medevac,
+                                tutela = marker.tutela,
+                                marker = marker.marker
+                            )
+                            // Reutilizas la misma ruta que un mensaje entrante normal
+                            handleIncomingRawMessage(
+                                Gson().toJson(fakeCreate),
+                                pointAnnotationManager,
+                                markerList,
+                                selectedMarker,
+                                medevacList,
+                                tutelaList,
+                                medevacIcon,
+                                warningIcon,
+                                tutelaIcon,
+                                isMedevacMode,
+                                isTutelaMode,
+                                currentLocation,
+                                measuringMarker,
+                                polylineManager,
+                                onMarkerClicked = { clicked ->
+                                    selectedMarker.value = clicked
+                                }
+                            )
+                        }
+                    }
+                }
+
                 "position" -> {
                     val msg = gson.fromJson(rawMsg, PositionMessage::class.java)
                     handleIncomingLocation(msg)   // 👈 aquí reutilizas tu función ya hecha
@@ -112,7 +159,7 @@ class WebSocketConfig(
 
                     when (option) {
                         MarkerType.NORMAL -> {
-                            val bmp = base64ToBitmap(msg.icon!!)
+                            val bmp = base64ToBitmap(msg.marker.icon!!)
                             pointAnnotationManager?.let { mgr ->
                                 placeMarker(
                                     mgr = mgr,

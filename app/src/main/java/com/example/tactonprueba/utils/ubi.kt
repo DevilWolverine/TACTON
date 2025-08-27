@@ -83,6 +83,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.tactonprueba.R
+import com.example.tactonprueba.network.MarkerEdit
 import com.example.tactonprueba.network.MarkerMessage
 import com.example.tactonprueba.network.WebSocketClient
 import com.example.tactonprueba.network.bitmapToBase64
@@ -836,12 +837,21 @@ fun goToUTM(
 
     val icon = bitmapToBase64(defaultMarkerBitmap)
 
+    val edit = MarkerEdit(
+        id = markerList.size + 1,
+        name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
+        createdBy = "Devil",
+        distance = markerList.last()?.distance,
+        point = point,
+        type = MarkerType.NORMAL,
+        icon = icon
+    )
+
     val markerMsg = MarkerMessage(
-        id = markerList.last().point,
+        id = markerList.size+1,
         type = "create",
         user = "Devil",
-        icon = icon,
-        marker = markerList.last(),
+        marker = edit,
 
         )
 
@@ -884,12 +894,21 @@ fun goToLatLon(
 
     val icon = bitmapToBase64(defaultMarkerBitmap)
 
+    val edit = MarkerEdit(
+        id = markerList.size + 1,
+        name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
+        createdBy = "Devil",
+        distance = markerList.last()?.distance,
+        point = point,
+        type = MarkerType.NORMAL,
+        icon = icon
+    )
+
     val markerMsg = MarkerMessage(
-        id = markerList.last().point,
+        id = markerList.size+1,
         type = "create",
         user = "Devil",
-        icon = icon,
-        marker = markerList.last(),
+        marker = edit,
 
         )
 
