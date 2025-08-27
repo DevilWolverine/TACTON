@@ -433,9 +433,9 @@ fun TutelaFormPanel(
                                 distancia = null,
                                 tipo = TutelaTipo.REPORT
                             )
-
                             onSubmit(tutela)
-                        }
+                        },
+                        enabled = selectedLocalizacion.value != null,
                     ) {
                         Text("Enviar")
 

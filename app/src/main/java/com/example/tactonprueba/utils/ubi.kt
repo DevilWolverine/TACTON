@@ -83,11 +83,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.tactonprueba.R
+import com.example.tactonprueba.network.MarkerMessage
+import com.example.tactonprueba.network.WebSocketClient
+import com.example.tactonprueba.network.bitmapToBase64
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.gson.Gson
 import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
@@ -172,7 +176,8 @@ fun CoordinateInputPanel(
     pointAnnotationManager: PointAnnotationManager,
     onMarkerClicked: (PointAnnotation) -> Unit,
     markerList: SnapshotStateList<MarkerData>,
-    currentLocation: MutableState<Point?>
+    currentLocation: MutableState<Point?>,
+    wsClient: WebSocketClient
 ) {
     var mode by remember { mutableStateOf("UTM") }
 
@@ -212,7 +217,8 @@ fun CoordinateInputPanel(
                 markerIdCounter,
                 onMarkerClicked,
                 markerList,
-                currentLocation)
+                currentLocation,
+                wsClient)
         }
 
         keyboardController?.hide()
@@ -237,7 +243,8 @@ fun CoordinateInputPanel(
                 markerIdCounter,
                 onMarkerClicked,
                 markerList,
-                currentLocation)
+                currentLocation,
+                wsClient)
         }
         keyboardController?.hide()
         onDismissRequest()
@@ -809,30 +816,37 @@ fun goToUTM(
     markerIdCounter: MutableState<Int>,
     onMarkerClicked: (PointAnnotation) -> Unit,
     markerList: SnapshotStateList<MarkerData>,
-    currentLocation: MutableState<Point?>
+    currentLocation: MutableState<Point?>,
+    wsClient: WebSocketClient
 ) {
     val (lat, lon) = utmToLatLon(x, y, zone, hemisphere)
     val point = Point.fromLngLat(lon, lat)
 
     cameraMove(mapView, point)
 
-    var distance = TurfMeasurement.distance(
-        currentLocation.value!!,
-        point,
-        TurfConstants.UNIT_METERS
-    )
-
     placeMarker(
         mgr = pointAnnotationManager,
         bmp = defaultMarkerBitmap,
         point = point,
-        id = markerIdCounter.value,
-        distance = distance,
+        id = markerList.size+1,
+        currentLocation = currentLocation,
         markerList = markerList,
         onMarkerClicked = onMarkerClicked,
     )
 
-    markerIdCounter.value++
+    val icon = bitmapToBase64(defaultMarkerBitmap)
+
+    val markerMsg = MarkerMessage(
+        id = markerList.last().point,
+        type = "create",
+        user = "Devil",
+        icon = icon,
+        marker = markerList.last(),
+
+        )
+
+    wsClient.sendMessage(Gson().toJson(markerMsg))
+
 
 }
 
@@ -846,7 +860,8 @@ fun goToLatLon(
     markerIdCounter: MutableState<Int>,
     onMarkerClicked: (PointAnnotation) -> Unit,
     markerList: SnapshotStateList<MarkerData>,
-    currentLocation: MutableState<Point?>
+    currentLocation: MutableState<Point?>,
+    wsClient: WebSocketClient
 ) {
     val point = Point.fromLngLat(longitude, latitude)
     cameraMove(mapView, point)
@@ -861,13 +876,25 @@ fun goToLatLon(
         mgr = pointAnnotationManager,
         bmp = defaultMarkerBitmap,
         point = point,
-        id = markerIdCounter.value,
-        distance = distance,
+        id = markerList.size+1,
+        currentLocation = currentLocation,
         markerList = markerList,
         onMarkerClicked = onMarkerClicked,
     )
 
-    markerIdCounter.value++
+    val icon = bitmapToBase64(defaultMarkerBitmap)
+
+    val markerMsg = MarkerMessage(
+        id = markerList.last().point,
+        type = "create",
+        user = "Devil",
+        icon = icon,
+        marker = markerList.last(),
+
+        )
+
+    wsClient.sendMessage(Gson().toJson(markerMsg))
+
 
 }
 

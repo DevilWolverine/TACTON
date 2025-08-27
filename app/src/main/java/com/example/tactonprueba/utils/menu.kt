@@ -46,7 +46,6 @@ import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
 
-
 // Componentes =====================================================================================
 // Estilo Menú principal ===========================================================================
 @Composable
@@ -566,7 +565,7 @@ fun MarkerListItem(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(
-                        bitmap = marker.icon.asImageBitmap(),
+                        bitmap = marker.icon!!.asImageBitmap(),
                         contentDescription = "Icono marcador",
                         modifier = Modifier.size(40.dp)
                     )
@@ -615,10 +614,10 @@ fun MarkerListItem(
                                     point = marker.point,
                                     markers = markerList,
                                     annotationManager = annotationManager,
-                                    isMeasuringMode = isMeasuringMode,
                                     measuringMarker = measuringMarker,
                                     polylineManager = polylineManager,
                                 )
+
                             }
                         }
                     ) {
@@ -738,7 +737,6 @@ fun MedevacItem(
                                 annotationManager = pointAnnotationManager,
                                 medevacs = medevacs,
                                 isMedevacMode = isMedevacMode,
-                                isMeasuringMode = isMeasuringMode,
                                 measuringMarker = measuringMarker,
                                 polylineManager = polylineManager,
                             )
@@ -967,7 +965,6 @@ fun TutelaItem(
                                     polylineManager = polylineManager,
                                     annotationManager = pointAnnotationManager,
                                     isTutelaMode = isTutelaMode,
-                                    isMeasuringMode = isMeasuringMode,
                                     measuringMarker = measuringMarker,
 
                                 )
@@ -980,7 +977,6 @@ fun TutelaItem(
                                     polylineManager = polylineManager,
                                     annotationManager = pointAnnotationManager,
                                     isTutelaMode = isTutelaMode,
-                                    isMeasuringMode = isMeasuringMode,
                                     measuringMarker = measuringMarker,
                                 )
                             }

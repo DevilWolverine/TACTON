@@ -1,11 +1,18 @@
 package com.example.tactonprueba.network
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.util.Log
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.tactonprueba.utils.MarkerData
+import com.example.tactonprueba.utils.MarkerType
+import com.example.tactonprueba.utils.MedevacData
+import com.example.tactonprueba.utils.TutelaData
 import com.example.tactonprueba.utils.placeMarker
+import com.example.tactonprueba.utils.removeMarkerByPoint
 import com.google.gson.Gson
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.FeatureCollection
@@ -18,8 +25,14 @@ import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
 import kotlinx.coroutines.*
+import java.io.ByteArrayOutputStream
 import kotlin.math.min
+
+object WebSocketHolder {
+    var wsClient: WebSocketClient? = null
+}
 
 // Posición de usuario
 data class PositionMessage(
@@ -31,13 +44,20 @@ data class PositionMessage(
 
 // Creación de marcador
 data class MarkerMessage(
-    val type: String = "marker_create",
+    val id: Point,
+    val type: String = "create",
     val user: String,
-    val id: Int,
-    val point: Point,
-    val icon: String? = null, // "NORMAL", "MEDEVAC", "TUTELA"...
-    val label: String? = null
+    val icon: String? = null,
+    val marker: MarkerData,
+    val medevac: MedevacData? = null,
+    val tutela: TutelaData? = null,
 )
+
+data class DeleteMessage(
+    val id: Point,
+    val type: String = "delete"
+)
+
 
 
 class WebSocketConfig(
@@ -53,7 +73,22 @@ class WebSocketConfig(
         pointAnnotationManager: PointAnnotationManager?,
         defaultMarkerBitmap: Bitmap,
         markerList: SnapshotStateList<MarkerData>,
-        onMarkerClicked: (PointAnnotation) -> Unit
+        onMarkerClicked: (annotation: PointAnnotation) -> Unit,
+        selectedMarker: MutableState<PointAnnotation?>,
+        medevacList: SnapshotStateList<MedevacData?>,
+        tutelaList: SnapshotStateList<TutelaData?>,
+        medevacIcon: Bitmap?,
+        warningIcon: Bitmap?,
+        tutelaIcon: Bitmap?,
+        isMedevacMode: MutableState<Boolean>,
+        isTutelaMode: MutableState<Boolean>,
+        markerIdCounter: MutableIntState,
+        medevacIdCounter: MutableIntState,
+        tutelaIdCounter: MutableIntState,
+        waringIdCounter: MutableIntState,
+        currentLocation: MutableState<Point?>,
+        measuringMarker: MutableState<Point?>,
+        polylineManager: MutableState<PolylineAnnotationManager?>,
     ) {
         try {
             val gson = Gson()
@@ -66,24 +101,152 @@ class WebSocketConfig(
 
                 }
 
-                "marker_create" -> {
+                "create" -> {
                     val msg = gson.fromJson(rawMsg, MarkerMessage::class.java)
-                    val point = Point.fromLngLat(msg.point.longitude(), msg.point.latitude())
+                    val point = Point.fromLngLat(msg.marker.point.longitude(), msg.marker.point.latitude())
 
                     // seleccionar icono según tipo (aquí de momento genérico)
                     Log.d("WebSocket", "📩 Mensaje bruto: ")
-                    val bmp = defaultMarkerBitmap
 
-                    pointAnnotationManager?.let { mgr ->
-                        placeMarker(
-                            mgr = mgr,
-                            bmp = bmp,
-                            point = point,
-                            id = msg.id,
-                            distance = 0.0,
-                            markerList = markerList,
-                            onMarkerClicked = onMarkerClicked
-                        )
+                    val option = msg.marker.type
+
+                    when (option) {
+                        MarkerType.NORMAL -> {
+                            val bmp = base64ToBitmap(msg.icon!!)
+                            pointAnnotationManager?.let { mgr ->
+                                placeMarker(
+                                    mgr = mgr,
+                                    bmp = bmp,
+                                    point = point,
+                                    id = markerList.size.toInt()+1,
+                                    currentLocation = currentLocation,
+                                    markerList = markerList,
+                                    onMarkerClicked = { clicked ->
+                                        selectedMarker.value = clicked
+                                    }
+                                )
+
+                            }
+                        }
+
+                        MarkerType.MEDEVAC -> {
+                            pointAnnotationManager?.let { mgr ->
+                                placeMarker(
+                                    mgr = mgr,
+                                    bmp = medevacIcon!!,
+                                    point = point,
+                                    id = markerList.size.toInt()+1,
+                                    currentLocation = currentLocation,
+                                    markerList = markerList,
+                                    medevacData = msg.medevac!!,
+                                    medevacList = medevacList,
+                                    isMedevacMode = isMedevacMode,
+                                    onMarkerClicked = { clicked ->
+                                        selectedMarker.value = clicked
+                                    }
+                                )
+
+                                markerList.add(
+                                    MarkerData(
+                                        id = markerList.size.toInt()+1,
+                                        name = "Medevac ${medevacList.size.toInt()}",
+                                        createdBy = "Operador",
+                                        distance = medevacList.last()?.distancia,
+                                        icon = medevacIcon,
+                                        point = msg.medevac.line1!!,
+                                        type = MarkerType.MEDEVAC,
+                                        medevac = msg.medevac   // 👈 ahora sí
+                                    )
+                                )
+
+                            }
+                        }
+
+                        MarkerType.TUTELA -> {
+                            if ((tutelaList.size+1) %2 != 0) {
+                                pointAnnotationManager?.let { mgr ->
+                                    placeMarker(
+                                        mgr = mgr,
+                                        bmp = tutelaIcon!!,
+                                        point = point,
+                                        id = markerList.size.toInt() +1 ,
+                                        currentLocation = currentLocation,
+                                        markerList = markerList,
+                                        isTutelaMode = isTutelaMode,
+                                        onMarkerClicked = { clicked ->
+                                            selectedMarker.value = clicked
+                                        },
+                                        tutelaList = tutelaList,
+                                        tutelaData = msg.tutela
+                                    )
+
+                                    markerList.add(
+                                        MarkerData(
+                                            id = markerList.size.toInt() + 1,
+                                            name = "Tutela ${(tutelaList.size+1)/2}",
+                                            createdBy = "Operador",
+                                            distance = tutelaList.last()?.distancia,
+                                            icon = tutelaIcon,
+                                            point = point,
+                                            type = MarkerType.TUTELA,
+                                            tutela = msg.tutela
+                                        )
+                                    )
+                                }
+
+                            } else {
+                                pointAnnotationManager?.let { mgr ->
+                                    val updatedTutela = tutelaList.last()?.copy(localizacion = tutelaList.last()?.localizacion)
+                                    placeMarker(
+                                        mgr = mgr,
+                                        bmp = warningIcon!!,
+                                        point = msg.tutela?.puesto!!,
+                                        id = markerList.size +1,
+                                        currentLocation = currentLocation,
+                                        markerList = markerList,
+                                        isTutelaMode = isTutelaMode,
+                                        onMarkerClicked = { clicked ->
+                                            selectedMarker.value = clicked
+                                        },
+                                        tutelaList = tutelaList,
+                                        tutelaData = updatedTutela
+                                    )
+
+                                    markerList.add(
+                                        MarkerData(
+                                            id = markerList.size.toInt() + 1,
+                                            name = "Observación ${(tutelaList.size.toInt())/2}",
+                                            createdBy = "Tutela ${(tutelaList.size.toInt())/2}",
+                                            icon = warningIcon,
+                                            distance = tutelaList.last()?.distancia?.toDouble(),
+                                            point = msg.tutela.puesto!!,
+                                            type = MarkerType.TUTELA,
+                                            tutela = updatedTutela
+                                        )
+                                    )
+
+                                }
+                            }
+
+                        } else -> {}
+                    }
+                }
+
+                "delete" -> {
+                    val gson = Gson()
+                    val msg = gson.fromJson(rawMsg, DeleteMessage::class.java)
+                    Log.d("WebSocket", "🗑 Eliminar marcador en ${msg.id} recibido")
+                    removeMarkerByPoint(
+                         msg.id,
+                         markerList,
+                         medevacList,
+                         tutelaList,
+                         pointAnnotationManager!!,
+                     )
+
+                    if (measuringMarker.value == msg.id) {
+                        measuringMarker.value = null
+                        polylineManager.value?.deleteAll()
                     }
                 }
             }
@@ -152,10 +315,8 @@ class WebSocketConfig(
         }
     }
 
-
-
     fun connectAndIdentify(wsClient: WebSocketClient, username: String) {
-        wsClient.connect("192.168.1.32", 8080)  // 👈 puedes parametrizar IP/puerto si quieres
+        wsClient.connect("192.168.1.39", 8080)  // 👈 puedes parametrizar IP/puerto si quieres
         val initMsg = """{"type":"hello","user":"$username"}"""
         wsClient.sendMessage(initMsg)
         Log.d("WebSocketConfig", "👋 Usuario $username identificado en el servidor")
@@ -165,6 +326,18 @@ class WebSocketConfig(
         var delta = (newBearing - oldBearing + 540) % 360 - 180
         return (oldBearing + delta * fraction + 360) % 360
     }
+}
+
+fun bitmapToBase64(bitmap: Bitmap): String {
+    val byteArrayOutputStream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
+    val byteArray = byteArrayOutputStream.toByteArray()
+    return Base64.encodeToString(byteArray, Base64.DEFAULT)
+}
+
+fun base64ToBitmap(base64Str: String): Bitmap {
+    val decodedBytes = Base64.decode(base64Str, Base64.DEFAULT)
+    return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
 }
 
 object MapStyleConfig {

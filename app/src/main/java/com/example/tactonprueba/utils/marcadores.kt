@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditLocationAlt
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.WrongLocation
@@ -94,10 +95,11 @@ data class MarkerData(
     val id: Int,
     val name: String,
     val point: Point,
-    val icon: Bitmap,
+    val icon: Bitmap?,
+    val iconRes: Int? = null,
     val createdBy: String,
     val distance: Double?,
-    val type: MarkerType = MarkerType.NORMAL,
+    val type: MarkerType,
     val medevac: MedevacData? = null,
     val tutela: TutelaData? = null
 )
@@ -395,11 +397,8 @@ fun MarkerMenu(
         ) {
             Card(
                 modifier = Modifier
-                    // Colocación del menú debajo del marcador
-                    .absoluteOffset(
-                        x = with(LocalDensity.current) { screenCoords.x.toFloat().toDp() - 80.dp },
-                        y = with(LocalDensity.current) { screenCoords.y.toFloat().toDp() + 30.dp }
-                    )
+                    .align(Alignment.Center)     // 👈 centrado en pantalla
+                    .padding(top = 200.dp)       // 👈 desplazado hacia abajo
                     .clickable(enabled = false) {}
                     .width(160.dp),
                 shape = RoundedCornerShape(12.dp),
@@ -423,6 +422,7 @@ fun MarkerMenu(
                             style = MaterialTheme.typography.bodySmall
 
                         )
+
                     }
 
                     HorizontalDivider(color = Color.Red)
@@ -478,7 +478,6 @@ fun MarkerMenu(
                                     point = selectedMarker.point,
                                     markers = markerList,
                                     annotationManager = pointAnnotationManager,
-                                    isMeasuringMode = isMeasuringMode,
                                     measuringMarker = measuringMarker,
                                     polylineManager = polylineManager,
                                 )
@@ -636,7 +635,7 @@ fun placeMarker(
     bmp: Bitmap,
     point: Point,
     id: Int,
-    distance: Double,
+    currentLocation: MutableState<Point?>,
     option: MarkerOption = defaultMarkerOptions()[0],
     markerList: SnapshotStateList<MarkerData>,
     isMedevacMode: MutableState<Boolean> = mutableStateOf(false),
@@ -648,6 +647,12 @@ fun placeMarker(
     tutelaData: TutelaData? = null,
 
     ) {
+
+    var distance = TurfMeasurement.distance(
+        currentLocation.value!!,
+        point,
+        TurfConstants.UNIT_METERS
+    )
 
     // Crea el marcador
     val annotation = mgr.create(
@@ -674,10 +679,8 @@ fun placeMarker(
         distance = distance,
         point = point,
         medevacList = medevacList,
-        isMedevacMode = isMedevacMode,
         medevacData = medevacData,
         tutelaList = tutelaList,
-        isTutelaMode = isTutelaMode,
         tutelaData = tutelaData,
     )
 
@@ -700,15 +703,13 @@ private fun saveMarker(
     distance: Double = 0.0,
     point: Point,
     medevacList: SnapshotStateList<MedevacData?> = mutableStateListOf(),
-    isMedevacMode: MutableState<Boolean>,
     medevacData: MedevacData? = null,
     tutelaList: SnapshotStateList<TutelaData?> = mutableStateListOf(),
-    isTutelaMode: MutableState<Boolean>,
     tutelaData: TutelaData? = null
 ) {
 
     // Guarda el marcador según el tipo
-    if (isMedevacMode.value) {
+    if (medevacData != null) {
 
         val medevacData = MedevacData(
             line1 = medevacData?.line1,
@@ -725,7 +726,7 @@ private fun saveMarker(
 
         medevacList.add(medevacData)
 
-    } else if (isTutelaMode.value) {
+    } else if (tutelaData != null) {
 
         val tutelaAux = tutelaList.lastOrNull()
 
@@ -770,7 +771,8 @@ private fun saveMarker(
             icon = iconRes,
             createdBy = createdBy,
             distance = distance,
-            point = point
+            point = point,
+            type = MarkerType.NORMAL
 
         )
 
@@ -805,9 +807,7 @@ fun updateMarkerIconByPoint(
 fun removeMarkerByPoint(
     point: Point,
     markers: MutableList<MarkerData>,
-    isMedevacMode: MutableState<Boolean> = mutableStateOf(false),
     medevacs: SnapshotStateList<MedevacData?> = mutableStateListOf(),
-    isTutelaMode: MutableState<Boolean> = mutableStateOf(false),
     tutelas: SnapshotStateList<TutelaData?> = mutableStateListOf(),
     annotationManager: PointAnnotationManager,
 ) {
@@ -828,11 +828,11 @@ fun removeMarkerByPoint(
         annotationManager.delete(annotationsToRemove)
 
         markers.remove(markerToRemove)
-        if (isMedevacMode.value) {
+        if (medevacToRemove != null) {
             medevacs.remove(medevacToRemove)
         }
 
-        if (isTutelaMode.value) {
+        if (tutelaToRemove != null || tutela2ToRemove != null) {
             when {
                 tutelaToRemove != null -> tutelas.remove(tutelaToRemove)
                 tutela2ToRemove != null -> tutelas.remove(tutela2ToRemove)

@@ -27,6 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import com.example.tactonprueba.network.DeleteMessage
+import com.example.tactonprueba.network.WebSocketHolder
+import com.google.gson.Gson
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
@@ -152,24 +155,25 @@ fun removeMarkerAndCancelMeasure(
     isMedevacMode: MutableState<Boolean> = mutableStateOf(false),
     tutelas: SnapshotStateList<TutelaData?> = mutableStateListOf(),
     isTutelaMode: MutableState<Boolean> = mutableStateOf(false),
-    isMeasuringMode: MutableState<Boolean>,
     measuringMarker: MutableState<Point?>,
     polylineManager: MutableState<PolylineAnnotationManager?>,
 ) {
+
+
+
+    WebSocketHolder.wsClient?.sendMessage(Gson().toJson(DeleteMessage(point)))
+
     removeMarkerByPoint(
         point = point,
         markers = markers,
         medevacs = medevacs,
         tutelas = tutelas,
-        isTutelaMode = isTutelaMode,
         annotationManager = annotationManager,
-        isMedevacMode = isMedevacMode,
     )
 
     // Elimina la medición si era el marcador que se estaba midiendo
     if (measuringMarker.value == point) {
         measuringMarker.value = null
-        isMeasuringMode.value = false
         polylineManager.value?.deleteAll()
     }
 }

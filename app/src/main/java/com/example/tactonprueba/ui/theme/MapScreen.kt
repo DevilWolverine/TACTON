@@ -6,7 +6,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Bitmap
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.foundation.layout.*
@@ -26,6 +25,8 @@ import com.example.tactonprueba.R
 import com.example.tactonprueba.network.MapStyleConfig
 import com.example.tactonprueba.network.MarkerMessage
 import com.example.tactonprueba.network.WebSocketConfig
+import com.example.tactonprueba.network.WebSocketHolder
+import com.example.tactonprueba.network.bitmapToBase64
 import com.example.tactonprueba.utils.ToolBar
 import com.example.tactonprueba.utils.BottomPanelMenu
 import com.example.tactonprueba.utils.CoordinateInputPanel
@@ -165,12 +166,28 @@ fun MapScreen() {
                 pointAnnotationManager = pointAnnotationManager.value,
                 defaultMarkerBitmap = defaultMarkerBitmap,
                 markerList = markerList,
+                medevacList = medevacList,
+                tutelaList = tutelaList,
+                medevacIcon = medevacIcon,
+                isMedevacMode = isMedevacMode,
+                tutelaIcon = tutelaIcon,
+                warningIcon = warningIcon,
+                isTutelaMode = isTutelaMode,
+                markerIdCounter = markerIdCounter,
+                measuringMarker = measuringMarker,
+                polylineManager = polylineManager,
+                medevacIdCounter = medevacIdCounter,
+                tutelaIdCounter = tutelaIdCounter,
+                waringIdCounter = warningIdCounter,
+                currentLocation = currentLocation,
+                selectedMarker = selectedMarker,
                 onMarkerClicked = { clicked ->
-                    // Aquí decides qué pasa al pulsar un marcador
-                    Log.d("MapScreen", "🖱 Marcador pulsado: ${clicked.point}")
+                    selectedMarker.value = clicked
                 }
             )
         }
+    }.also {
+        WebSocketHolder.wsClient = it
     }
     // Fin Variables ===============================================================================
 
@@ -230,6 +247,7 @@ fun MapScreen() {
 
 // Pantalla Introducción Coordenadas ===========================================================
             CoordinateInputPanel(
+                wsClient = wsClient,
                 currentLocation = currentLocation,
                 isVisible = isCoordOpen.value && mapViewRef.value != null,
                 onDismissRequest = { isCoordOpen.value = false },
@@ -423,6 +441,7 @@ fun MapScreen() {
                         selectedMarkerBitmap.value =
                             dr?.toBitmap(width = iconSizePx, height = iconSizePx)
 
+
                         selectedMarkerOption.value = markerOpt
 
                         isPlacingMarker.value = selectedMarkerBitmap.value != null
@@ -487,20 +506,13 @@ fun MapScreen() {
                     onSubmit = { medevacData ->
                         val mgr = pointAnnotationManager.value ?: return@MedevacFormPanel
 
-                        var distance = TurfMeasurement.distance(
-                            currentLocation.value!!,
-                            medevacPoint.value!!,
-                            TurfConstants.UNIT_METERS
-                        )
-
-
                         if (medevacIcon != null) {
                             placeMarker(
                                 mgr = mgr,
                                 bmp = medevacIcon,
                                 point = medevacPoint.value!!,
-                                id = markerIdCounter.intValue,
-                                distance = distance,
+                                id = markerList.size + 1,
+                                currentLocation = currentLocation,
                                 markerList = markerList,
                                 isMedevacMode = isMedevacFormOpen,
                                 onMarkerClicked = { clicked -> selectedMarker.value = clicked },
@@ -511,19 +523,27 @@ fun MapScreen() {
                             // Añade el icono a la lista
                             markerList.add(
                                 MarkerData(
-                                    id = markerIdCounter.intValue,
-                                    name = "Medevac ${medevacIdCounter.intValue}",
+                                    id = markerList.size + 1,
+                                    name = "Medevac ${medevacList.size}",
                                     createdBy = "Operador",
-                                    distance = distance,
+                                    distance = medevacList.last()?.distancia,
                                     icon = medevacIcon,
                                     point = medevacPoint.value!!,
                                     type = MarkerType.MEDEVAC,
                                     medevac = medevacData   // 👈 ahora sí
                                 )
                             )
-                            // Actualización de contadores
-                            medevacIdCounter.intValue++
-                            markerIdCounter.intValue++
+
+                            val markerMsg = MarkerMessage(
+                                id = markerList.last().point,
+                                type = "create",
+                                user = "Devil",
+                                marker = markerList.last(),
+                                medevac = medevacList.last()
+                            )
+
+                            wsClient.sendMessage(Gson().toJson(markerMsg))
+
                         }
                         // Cierre de formulario
                         isMedevacFormOpen.value = false
@@ -543,12 +563,6 @@ fun MapScreen() {
                     onSubmit = { tutelaData ->
                         val mgr = pointAnnotationManager.value ?: return@TutelaFormPanel
 
-                        val distance = TurfMeasurement.distance(
-                            currentLocation.value!!,
-                            tutelaPoint.value!!,
-                            TurfConstants.UNIT_METERS
-                        )
-
                         // Guardamos la localización del puesto observado
                         val updatedTutela = tutelaData.copy(localizacion = locationPoint.value)
 
@@ -557,21 +571,23 @@ fun MapScreen() {
                                 mgr = mgr,
                                 bmp = tutelaIcon,
                                 point = tutelaPoint.value!!,
-                                id = markerIdCounter.intValue,
-                                distance = distance,
+                                id = markerList.size +1,
                                 markerList = markerList,
                                 isTutelaMode = isTutelaFormOpen,
                                 onMarkerClicked = { clicked -> selectedMarker.value = clicked },
                                 tutelaList = tutelaList,
-                                tutelaData = updatedTutela
+                                tutelaData = tutelaData,
+                                currentLocation = currentLocation
                             )
+
+                            val aux = if (tutelaList.isEmpty()) tutelaList.size+1 else ((tutelaList.size)/2)
 
                             markerList.add(
                                 MarkerData(
-                                    id = markerIdCounter.intValue,
-                                    name = "Tutela ${tutelaIdCounter.intValue}",
+                                    id = markerList.size + 1,
+                                    name = "Tutela ${(tutelaList.size+1)/2}",
                                     createdBy = "Operador",
-                                    distance = distance,
+                                    distance = tutelaList.last()?.distancia,
                                     icon = tutelaIcon,
                                     point = tutelaPoint.value!!,
                                     type = MarkerType.TUTELA,
@@ -579,26 +595,28 @@ fun MapScreen() {
                                 )
                             )
 
-                            tutelaIdCounter.intValue++
-                            markerIdCounter.intValue++
+                            val markerMsg = MarkerMessage(
+                                id = markerList.last().point,
+                                type = "create",
+                                user = "Devil",
+                                marker = markerList.last(),
+                                tutela = tutelaList.last()
+
+                            )
+
+                            wsClient.sendMessage(Gson().toJson(markerMsg))
                         }
 
                         // Crea el marcador de observación
                         locationPoint.value?.let { loc ->
-
-                            val distance2 = TurfMeasurement.distance(
-                                currentLocation.value!!,
-                                loc,
-                                TurfConstants.UNIT_METERS
-                            )
 
                             if (warningIcon != null) {
                                 placeMarker(
                                     mgr = mgr,
                                     bmp = warningIcon,
                                     point = loc,
-                                    id = warningIdCounter.intValue,
-                                    distance = distance2,
+                                    id = markerList.size +1,
+                                    currentLocation = currentLocation,
                                     markerList = markerList,
                                     isTutelaMode = isTutelaFormOpen,
                                     onMarkerClicked = { clicked -> selectedMarker.value = clicked },
@@ -608,18 +626,28 @@ fun MapScreen() {
 
                                 markerList.add(
                                     MarkerData(
-                                        id = markerIdCounter.intValue,
-                                        name = "Observación ${warningIdCounter.intValue}",
-                                        createdBy = "Tutela ${tutelaIdCounter.intValue}",
-                                        distance = distance2,
+                                        id = markerList.size +1,
+                                        name = "Observación ${(tutelaList.size)/2}",
+                                        createdBy = "Tutela ${(tutelaList.size)/2}",
+                                        distance = tutelaList.last()?.distancia,
                                         icon = warningIcon,
                                         point = loc,
                                         type = MarkerType.TUTELA,
                                         tutela = updatedTutela
                                     )
                                 )
-                                warningIdCounter.intValue++
-                                markerIdCounter.intValue++
+
+                                val markerMsg = MarkerMessage(
+                                    id = markerList.last().point,
+                                    type = "create",
+                                    user = "Devil",
+                                    marker = markerList.last(),
+                                    tutela = tutelaList.last()
+
+                                )
+
+                                wsClient.sendMessage(Gson().toJson(markerMsg))
+
                             }
                         }
 
@@ -653,6 +681,7 @@ fun MapScreen() {
                         measuringTarget.value = null
                         isMedevacMode.value = false
                         isTutelaMode.value = false
+                        isPickingLocation.value = false
                         // limpiar línea de distancia
                         mapViewRef.value?.annotations?.createPolylineAnnotationManager()
                             ?.deleteAll()
@@ -679,12 +708,6 @@ fun MapScreen() {
 
                     val mgr = pointAnnotationManager.value ?: return@OnMapClickListener false
 
-                    // Calcula la distancia entre el punto y la ubicación
-                    var distance = TurfMeasurement.distance(
-                        currentLocation.value!!,
-                        point,
-                        TurfConstants.UNIT_METERS
-                    )
 
                     // Crea un marcador por defecto y lo coloca en el punto
                     val bmp = defaultMarkerBitmap
@@ -692,28 +715,26 @@ fun MapScreen() {
                         mgr = mgr,
                         bmp = bmp,
                         point = point,
-                        id = markerIdCounter.intValue,
-                        distance = distance,
+                        id = markerList.size + 1,
+                        currentLocation = currentLocation,
                         markerList = markerList,
                         onMarkerClicked = { clicked ->
                             selectedMarker.value = clicked
                         },
-                        medevacList = medevacList,
                     )
+
+                    val icon = bitmapToBase64(bmp)
 
                     val markerMsg = MarkerMessage(
-                        type = "marker_create",
+                        id = markerList.last().point,
+                        type = "create",
                         user = "Devil",
-                        id = markerIdCounter.intValue,
-                        point = point,
-                        icon = distance.toString(),// o según el tipo que hayas elegido
-                        label = "Marcador ${markerIdCounter.intValue}"
-                    )
+                        icon = icon,
+                        marker = markerList.last(),
+
+                        )
 
                     wsClient.sendMessage(Gson().toJson(markerMsg))
-
-                    // Conteo de marcadores
-                    markerIdCounter.intValue++
 
                     // Inicio de medición medir
                     measuringMarker.value = point
@@ -737,37 +758,31 @@ fun MapScreen() {
                     val bmp = selectedMarkerBitmap.value ?: return@OnMapClickListener false
                     val mgr = pointAnnotationManager.value ?: return@OnMapClickListener false
 
-                    var distance = TurfMeasurement.distance(
-                        currentLocation.value!!,
-                        point,
-                        TurfConstants.UNIT_METERS
-                    )
-
                     // Crea marcador
                     placeMarker(
                         mgr = mgr,
                         bmp = bmp,
                         point = point,
-                        id = markerIdCounter.intValue,
-                        distance = distance,
+                        id = markerList.size +1,
+                        currentLocation = currentLocation,
                         markerList = markerList,
                         onMarkerClicked = { clicked ->
                             selectedMarker.value = clicked
                         },
-                        medevacList = medevacList,
                     )
 
+                    val icon = bitmapToBase64(bmp)
+
                     val markerMsg = MarkerMessage(
-                        type = "marker_create",
+                        id = markerList.last().point,
+                        type = "create",
                         user = "Devil",
-                        id = markerIdCounter.intValue,
-                        point = point,   // o según el tipo que hayas elegido
-                        label = "Marcador ${markerIdCounter.intValue}"
+                        icon = icon,
+                        marker = markerList.last(),
+
                     )
 
                     wsClient.sendMessage(Gson().toJson(markerMsg))
-
-                    markerIdCounter.intValue++
 
                     // Salir del modo colocar
                     isPlacingMarker.value = false
@@ -852,7 +867,7 @@ fun MapScreen() {
 // FIN Contenedor Principal ====================================================================
 
 // Efectos =====================================================================================
-// Retraso de aparición del cajón de coordenadas ===============================================
+// Retraso de aparición del cajón de coordenadas
     LaunchedEffect(isMenuOpen.value) {
         if (isMenuOpen.value) {
             delay(50)
@@ -864,7 +879,7 @@ fun MapScreen() {
         }
     }
 
-// Actualización de posición ===================================================================
+// Actualización de posición
     LaunchedEffect(isFollowingLocation.value) {
         locationUpdatesFlow(context).collect { loc ->
             if (loc != null) {
@@ -908,14 +923,14 @@ fun MapScreen() {
         }
     }
 
-// Mantiene la orientación del dispositivo =====================================================
+// Mantiene la orientación del dispositivo
     LaunchedEffect(Unit) {
         context.orientationFlow().collect { azimuth ->
             heading.floatValue = azimuth
         }
     }
 
-// Ocultar barra de estado =====================================================================
+// Ocultar barra de estado
     LaunchedEffect(Unit) {
         val window = (context as? Activity)?.window ?: return@LaunchedEffect
         val controller = WindowInsetsControllerCompat(window, view)
