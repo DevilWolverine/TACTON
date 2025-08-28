@@ -159,9 +159,13 @@ fun removeMarkerAndCancelMeasure(
     polylineManager: MutableState<PolylineAnnotationManager?>,
 ) {
 
-
-
-    WebSocketHolder.wsClient?.sendMessage(Gson().toJson(DeleteMessage(point)))
+    for (marker in markers) {
+        if (marker.point == point) {
+            val msg = DeleteMessage(id = marker.id, point = marker.point)
+            WebSocketHolder.wsClient?.sendMessage(Gson().toJson(msg))
+            break
+        }
+    }
 
     removeMarkerByPoint(
         point = point,

@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import com.example.tactonprueba.network.WebSocketHolder.wsClient
 import kotlinx.coroutines.delay
 
 @Composable
@@ -25,6 +26,7 @@ fun DoubleBackToExitApp() {
     // Escucha del botón atrás
     BackHandler {
         if (backPressedOnce) {
+            wsClient?.close()
             activity?.finish()
         } else {
             backPressedOnce = true

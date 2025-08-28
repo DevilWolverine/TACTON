@@ -961,11 +961,11 @@ fun TutelaItem(
                                 removeMarkerAndCancelMeasure(
                                     point = it,
                                     markers = markers,
-                                    tutelas = tutelas,
-                                    polylineManager = polylineManager,
                                     annotationManager = pointAnnotationManager,
+                                    tutelas = tutelas,
                                     isTutelaMode = isTutelaMode,
                                     measuringMarker = measuringMarker,
+                                    polylineManager = polylineManager,
 
                                 )
 
@@ -973,11 +973,12 @@ fun TutelaItem(
                                 removeMarkerAndCancelMeasure(
                                     point = it,
                                     markers = markers,
-                                    tutelas = tutelas,
-                                    polylineManager = polylineManager,
                                     annotationManager = pointAnnotationManager,
+                                    tutelas = tutelas,
                                     isTutelaMode = isTutelaMode,
                                     measuringMarker = measuringMarker,
+                                    polylineManager = polylineManager,
+
                                 )
                             }
                         }

@@ -41,9 +41,9 @@ data class PositionMessage(
     val bearing: Double? = null
 )
 
-// Creación de marcador
+// Creación del marcador
 data class MarkerMessage(
-    val id: Int,
+    val id: Int? = null,
     val type: String = "create",
     val user: String,
     val icon: String? = null,
@@ -52,6 +52,7 @@ data class MarkerMessage(
     val tutela: TutelaData? = null,
 )
 
+// Falso marcador
 data class MarkerEdit(
     val id: Int,
     val name: String,
@@ -64,16 +65,23 @@ data class MarkerEdit(
 )
 
 data class DeleteMessage(
-    val id: Point,
+    val id: Int,
+    val point: Point,
     val type: String = "delete"
 )
 
 data class InitStateMessage(
     val type: String = "init_state",
-    val users: Map<String, Any>?,
+    val users: Conect,
     val markers: List<MarkerMessage>
 )
 
+data class Conect(
+    val id: Int,
+    val user: String,
+    val point: Point,
+    val bearing: Double
+)
 
 
 class WebSocketConfig(
@@ -282,19 +290,36 @@ class WebSocketConfig(
                 "delete" -> {
                     val gson = Gson()
                     val msg = gson.fromJson(rawMsg, DeleteMessage::class.java)
-                    Log.d("WebSocket", "🗑 Eliminar marcador en ${msg.id} recibido")
+                    Log.d("WebSocket", "🗑 Eliminar marcador en ${msg.point} recibido")
                     removeMarkerByPoint(
-                         msg.id,
+                         msg.point,
                          markerList,
                          medevacList,
                          tutelaList,
                          pointAnnotationManager!!,
                      )
 
-                    if (measuringMarker.value == msg.id) {
+                    if (measuringMarker.value == msg.point) {
                         measuringMarker.value = null
                         polylineManager.value?.deleteAll()
                     }
+                }
+
+                "user_disconnect" -> {
+                    val user = base["user"] as String
+                    remoteUsers.remove(user)
+                    Log.d("WebSocket", "❌ Usuario $user desconectado")
+
+                    val features = remoteUsers.map { (id, pair) ->
+                        val (pt, brg) = pair
+                        Feature.fromGeometry(pt).apply {
+                            addStringProperty("user", id)
+                            addNumberProperty("bearing", brg)
+                        }
+                    }
+                    userSourceRef.value?.featureCollection(
+                        FeatureCollection.fromFeatures(features)
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -363,7 +388,7 @@ class WebSocketConfig(
     }
 
     fun connectAndIdentify(wsClient: WebSocketClient, username: String) {
-        wsClient.connect("192.168.1.39", 8080)  // 👈 puedes parametrizar IP/puerto si quieres
+        wsClient.connect("192.168.1.103", 8080)  // 👈 puedes parametrizar IP/puerto si quieres
         val initMsg = """{"type":"hello","user":"$username"}"""
         wsClient.sendMessage(initMsg)
         Log.d("WebSocketConfig", "👋 Usuario $username identificado en el servidor")

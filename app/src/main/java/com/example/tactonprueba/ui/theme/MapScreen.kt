@@ -186,6 +186,8 @@ fun MapScreen() {
     }.also {
         WebSocketHolder.wsClient = it
     }
+
+    val myUser = "Wolf"
     // Fin Variables ===============================================================================
 
     // Contenedor Principal ========================================================================
@@ -197,7 +199,6 @@ fun MapScreen() {
                 MapView(ctx).apply {
                     MapInit.provideAccessToken(ctx)
                     compass.enabled = false
-                    scalebar.enabled = false
                     attribution.enabled = false
 
                     // Configuración inicial del puck
@@ -542,7 +543,6 @@ fun MapScreen() {
                             )
 
                             val markerMsg = MarkerMessage(
-                                id = markerList.size + 1,
                                 type = "create",
                                 user = "Devil",
                                 marker = edit,
@@ -613,7 +613,6 @@ fun MapScreen() {
                             )
 
                             val markerMsg = MarkerMessage(
-                                id = markerList.size + 1,
                                 type = "create",
                                 user = "Devil",
                                 marker = edit,
@@ -665,7 +664,6 @@ fun MapScreen() {
                                 )
 
                                 val markerMsg = MarkerMessage(
-                                    id = markerList.size + 1,
                                     type = "create",
                                     user = "Devil",
                                     marker = edit,
@@ -763,7 +761,6 @@ fun MapScreen() {
                     )
 
                     val markerMsg = MarkerMessage(
-                        id = markerList.size + 1,
                         type = "create",
                         user = "Devil",
                         marker = edit,
@@ -820,7 +817,6 @@ fun MapScreen() {
                     )
 
                     val markerMsg = MarkerMessage(
-                        id = markerList.size + 1,
                         type = "create",
                         user = "Devil",
                         marker = edit,
@@ -932,7 +928,6 @@ fun MapScreen() {
                 currentLocation.value = point
 
                 // 🔹 Enviar posición por WebSocket en cada actualización
-                val myUser = "Devil"
                 val msg = PositionMessage(
                     type = "position",
                     user = myUser,
@@ -1009,7 +1004,7 @@ fun MapScreen() {
     // Conexión WebSocket
     LaunchedEffect(hasLocation.value) {
         if (hasLocation.value) {
-            wsConfig.connectAndIdentify(wsClient, "Devil")
+            wsConfig.connectAndIdentify(wsClient, myUser)
         }
     }
 
