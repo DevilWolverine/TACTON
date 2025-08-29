@@ -5,6 +5,8 @@ import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.Log
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.tactonprueba.utils.MarkerData
 import com.example.tactonprueba.utils.MarkerType
@@ -31,6 +33,9 @@ import kotlin.math.min
 
 object WebSocketHolder {
     var wsClient: WebSocketClient? = null
+    val isConnected = mutableStateOf(false)
+    val shouldReconnect = mutableStateOf(false)
+
 }
 
 // Posición de usuario
@@ -83,13 +88,54 @@ data class Conect(
     val bearing: Double
 )
 
+// 🌍 Variables globales para toda la app
 
-class WebSocketConfig(
+
+
+
+class WebSocketClient(
     private val remoteUsers: MutableMap<String, Pair<Point, Double>>,
     private val userSourceRef: MutableState<GeoJsonSource?>,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val onMessage: (String) -> Unit = {}
 ) {
     private val animationJobs = mutableMapOf<String, Job>()
+    private var config: WebSocketConnect? = null
+
+    private var onMessageCallback: ((String) -> Unit)? = null
+
+    fun setOnMessage(callback: (String) -> Unit) {
+        onMessageCallback = callback
+    }
+
+    fun connect(serverIp: String, port: Int, username: String) {
+        config = WebSocketConnect { raw ->
+            onMessage(raw) // 👈 delega al callback que definiste en MapScreen
+        }
+
+        config?.connect(serverIp, port)
+
+        val helloMsg = """{"type":"hello","user":"$username"}"""
+        config?.sendMessage(helloMsg)
+
+        WebSocketHolder.isConnected.value = true
+        Log.d("WebSocketClient", "👋 Usuario $username identificado en $serverIp:$port")
+    }
+
+    /**
+     * Enviar un mensaje al servidor.
+     */
+    fun sendMessage(msg: String) {
+        config?.sendMessage(msg)
+    }
+
+    /**
+     * Cerrar conexión.
+     */
+    fun close() {
+        config?.close()
+        WebSocketHolder.isConnected.value = false
+    }
 
     // Manejar mensajes entrantes
     fun handleIncomingRawMessage(
@@ -116,12 +162,18 @@ class WebSocketConfig(
             when (base["type"]) {
                 "init_state" -> {
                     val msg = gson.fromJson(rawMsg, InitStateMessage::class.java)
+
+                    markerList.clear()
+                    medevacList.clear()
+                    tutelaList.clear()
+                    pointAnnotationManager?.deleteAll()
+
                     msg.markers.forEach { marker ->
                         pointAnnotationManager?.let { mgr ->
                             val fakeCreate = MarkerMessage(
                                 id = marker.id,
                                 type = "create",
-                                user = "server",
+                                user = marker.marker.createdBy,
                                 medevac = marker.medevac,
                                 tutela = marker.tutela,
                                 marker = marker.marker
@@ -176,6 +228,7 @@ class WebSocketConfig(
                                     id = markerList.size.toInt()+1,
                                     currentLocation = currentLocation,
                                     markerList = markerList,
+                                    usuario = msg.user,
                                     onMarkerClicked = { clicked ->
                                         selectedMarker.value = clicked
                                     }
@@ -191,6 +244,7 @@ class WebSocketConfig(
                                     bmp = medevacIcon!!,
                                     point = point,
                                     id = markerList.size.toInt()+1,
+                                    usuario = msg.user,
                                     currentLocation = currentLocation,
                                     markerList = markerList,
                                     medevacData = msg.medevac!!,
@@ -205,7 +259,7 @@ class WebSocketConfig(
                                     MarkerData(
                                         id = markerList.size.toInt()+1,
                                         name = "Medevac ${medevacList.size.toInt()}",
-                                        createdBy = "Operador",
+                                        createdBy = msg.user,
                                         distance = medevacList.last()?.distancia,
                                         icon = medevacIcon,
                                         point = msg.medevac.line1!!,
@@ -227,6 +281,7 @@ class WebSocketConfig(
                                         id = markerList.size.toInt() +1 ,
                                         currentLocation = currentLocation,
                                         markerList = markerList,
+                                        usuario = msg.user,
                                         isTutelaMode = isTutelaMode,
                                         onMarkerClicked = { clicked ->
                                             selectedMarker.value = clicked
@@ -239,7 +294,7 @@ class WebSocketConfig(
                                         MarkerData(
                                             id = markerList.size.toInt() + 1,
                                             name = "Tutela ${(tutelaList.size+1)/2}",
-                                            createdBy = "Operador",
+                                            createdBy = msg.user,
                                             distance = tutelaList.last()?.distancia,
                                             icon = tutelaIcon,
                                             point = point,
@@ -259,6 +314,7 @@ class WebSocketConfig(
                                         id = markerList.size +1,
                                         currentLocation = currentLocation,
                                         markerList = markerList,
+                                        usuario = msg.user,
                                         isTutelaMode = isTutelaMode,
                                         onMarkerClicked = { clicked ->
                                             selectedMarker.value = clicked
@@ -271,7 +327,8 @@ class WebSocketConfig(
                                         MarkerData(
                                             id = markerList.size.toInt() + 1,
                                             name = "Observación ${(tutelaList.size.toInt())/2}",
-                                            createdBy = "Tutela ${(tutelaList.size.toInt())/2}",
+                                            createdBy = "Tutela ${(tutelaList.size.toInt())/2} -" +
+                                                    " ${msg.user}",
                                             icon = warningIcon,
                                             distance = tutelaList.last()?.distancia?.toDouble(),
                                             point = msg.tutela.puesto!!,
@@ -387,12 +444,18 @@ class WebSocketConfig(
         }
     }
 
-    fun connectAndIdentify(wsClient: WebSocketClient, username: String) {
-        wsClient.connect("192.168.1.103", 8080)  // 👈 puedes parametrizar IP/puerto si quieres
+
+    fun getConnectedUsers(): List<String> {
+        return remoteUsers.keys.toList()
+    }
+
+    fun connectAndIdentify(wsClient: WebSocketConnect, username: String) {
+        wsClient.connect("192.168.1.102", 8080)  // o la IP de tu ServerConfigurationScreen
         val initMsg = """{"type":"hello","user":"$username"}"""
         wsClient.sendMessage(initMsg)
-        Log.d("WebSocketConfig", "👋 Usuario $username identificado en el servidor")
+        Log.d("WebSocketClient", "👋 Usuario $username identificado en el servidor")
     }
+
 
     private fun interpolateBearing(oldBearing: Double, newBearing: Double, fraction: Float): Double {
         var delta = (newBearing - oldBearing + 540) % 360 - 180
@@ -438,3 +501,4 @@ object MapStyleConfig {
         style.addLayer(symbolLayer)
     }
 }
+

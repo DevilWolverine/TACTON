@@ -552,12 +552,13 @@ fun MedevacFormPanel(
     point: Point,
     onDismissRequest: () -> Unit,
     onSubmit: (MedevacData) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    usuario: String
 ) {
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
     var l2freq by remember { mutableStateOf("300.00") }
-    var l2usuario by remember { mutableStateOf("Usuario") }
+    var l2usuario by remember { mutableStateOf(usuario) }
     var l3cantidad by remember { mutableStateOf("1") }
     var l3precedence by remember { mutableStateOf("A - Urgente") }
     var l4 by remember { mutableStateOf("A - Ninguno") }

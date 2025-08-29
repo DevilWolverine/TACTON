@@ -1,5 +1,7 @@
 package com.example.tactonprueba.utils
 
+import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -37,10 +39,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.tactonprueba.network.WebSocketHolder
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
@@ -120,7 +124,10 @@ fun BottomPanelMenu(
     var showMarkerList  by remember { mutableStateOf(false) }
     var showMarkerPicker  by remember { mutableStateOf(false) }
     var showMedevacList  by remember { mutableStateOf(false) }
+    var showPreferences  by remember { mutableStateOf(false) }
+    var showServer by remember { mutableStateOf(false) }
     var showTutelaList  by remember { mutableStateOf(false) }
+    var showExitDialog by remember { mutableStateOf(false) }
 
     // Reset del menú
     LaunchedEffect(isVisible) {
@@ -130,6 +137,9 @@ fun BottomPanelMenu(
             showMarkerList = false
             showMedevacList = false
             showTutelaList = false
+            showExitDialog = false
+            showPreferences = false
+            showServer = false
             pickerOptions = emptyList()
             clearBack(backStack)
         }
@@ -173,8 +183,13 @@ fun BottomPanelMenu(
                     RenderMainMenu(
                         onSelect = { activeSubmenu.value = it },
                         onOptionSelected = {
-                            onOptionSelected(it)
-                            onDismissRequest()
+                            if (it == "Salir") {
+                                onDismissRequest()
+                                showExitDialog = true
+                            } else {
+                                onOptionSelected(it)
+                                onDismissRequest()
+                            }
                         }
                     )
                 } else {
@@ -197,6 +212,8 @@ fun BottomPanelMenu(
                                     showMarkerList = false
                                     showMedevacList = false
                                     showTutelaList = false
+                                    showPreferences = false
+                                    showServer = false
                                 }
                             }
                         ) {
@@ -234,10 +251,16 @@ fun BottomPanelMenu(
                         showMarkerList = showMarkerList,
                         showMedevacList = showMedevacList,
                         showTutelaList = showTutelaList,
+                        showPreferences = showPreferences,
+                        showServer = showServer,
                         setShowTutelaList = { showTutelaList = it },
                         setShowMarkerPicker = { showMarkerPicker = it },
                         setShowMarkerList = { showMarkerList = it },
                         setShowMedevacList = { showMedevacList = it },
+                        setShowPreferences = { showPreferences = it },
+                        setShowServer = { showServer = it },
+                        showExitDialog = showExitDialog,
+                        setShowExitDialog = { showExitDialog = it },
                         distantRequest = { distantRequest -> distantRequest(distantRequest) },
                         onMarkerSelected = onMarkerSelected,
                         setPickerOptions = { pickerOptions = it },
@@ -248,6 +271,7 @@ fun BottomPanelMenu(
 
                 }
             }
+
         }
     }
 }
@@ -296,36 +320,42 @@ private fun RenderMainMenu(
         item { MenuCard(Icons.Default.Style,"Tutela") { onSelect("Tutela") } }
         item { MenuCard(Icons.Default.Construction,"Opciones") { onSelect("Opciones") } }
         item { MenuCard(Icons.Default.AdsClick,"Guía de usuario") { onSelect("Guia") } }
-        item { MenuCard(Icons.Default.Cancel,"Salir") { onSelect("Salir") } }
+        item { MenuCard(Icons.Default.Cancel,"Salir") { onOptionSelected("Cerrar") } }
     }
 }
 
 // Carga Submenú ===================================================================================
 @Composable
 fun RenderSubMenu(
-    submenu: String?,
-    onStyleSelected: (String) -> Unit,
-    onOptionSelected: (String) -> Unit,
     annotationManager: PointAnnotationManager,
-    showMarkerPicker: Boolean,
-    setShowMarkerPicker: (Boolean) -> Unit,
-    onMarkerSelected: (MarkerOption) -> Unit,
-    setPickerOptions: (List<MarkerOption>) -> Unit,
-    markerList: SnapshotStateList<MarkerData>,
-    showMarkerList: Boolean,
-    setShowMarkerList: (Boolean) -> Unit,
     backStack: MutableList<() -> Unit>,
-    mapView: MapView?,
-    showMedevacList: Boolean,
-    setShowMedevacList: (Boolean) -> Unit,
-    medevacList: SnapshotStateList<MedevacData?> = mutableStateListOf(),
-    showTutelaList: Boolean,
-    setShowTutelaList: (Boolean) -> Unit,
-    tutelaList: SnapshotStateList<TutelaData?> = mutableStateListOf(),
     distantRequest: (Point) -> Unit,
-    measuringMarker: MutableState<Point?>,
     isMeasuringMode: MutableState<Boolean>,
+    mapView: MapView?,
+    markerList: SnapshotStateList<MarkerData>,
+    measuringMarker: MutableState<Point?>,
+    medevacList: SnapshotStateList<MedevacData?> = mutableStateListOf(),
+    onMarkerSelected: (MarkerOption) -> Unit,
+    onOptionSelected: (String) -> Unit,
+    onStyleSelected: (String) -> Unit,
     polylineManager: MutableState<PolylineAnnotationManager?>,
+    setPickerOptions: (List<MarkerOption>) -> Unit,
+    setShowMarkerList: (Boolean) -> Unit,
+    setShowMarkerPicker: (Boolean) -> Unit,
+    setShowMedevacList: (Boolean) -> Unit,
+    setShowPreferences: (Boolean) -> Unit,
+    setShowServer: (Boolean) -> Unit,
+    setShowTutelaList: (Boolean) -> Unit,
+    showMarkerList: Boolean,
+    showMarkerPicker: Boolean,
+    setShowExitDialog: (Boolean) -> Unit,
+    showMedevacList: Boolean,
+    showPreferences: Boolean,
+    showServer: Boolean,
+    showTutelaList: Boolean,
+    submenu: String?,
+    tutelaList: SnapshotStateList<TutelaData?> = mutableStateListOf(),
+    showExitDialog: Boolean,
 ) {
 
     // Selección de la opción de los submenús
@@ -486,9 +516,28 @@ fun RenderSubMenu(
         }
 
         "Opciones" -> {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SubmenuCard("Configuración general") { }
-                SubmenuCard("Ajustes de usuario") {  }
+
+            if (showPreferences) {
+                pushBack(backStack) { setShowPreferences(false) }
+                UserConfigurationScreen()
+
+            } else if (showServer){
+                pushBack(backStack) { setShowServer(false) }
+                ServerConfigurationScreen()
+
+            } else {
+                clearBack(backStack)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SubmenuCard("Ajustes de usuario") {
+                        pushBack(backStack) { setShowPreferences(false) }
+                        setShowPreferences(true)
+                    }
+                    SubmenuCard("Ajustes de servidor") {
+                        pushBack(backStack) { setShowServer(false) }
+                        setShowServer(true)
+                    }
+
+                }
             }
         }
 
@@ -531,6 +580,12 @@ fun MarkerList(
             )
         }
     }
+}
+
+@Composable
+fun close() {
+    val activity = LocalActivity.current as? Activity
+    activity?.finish()
 }
 
 // Lista de marcadores =============================================================================

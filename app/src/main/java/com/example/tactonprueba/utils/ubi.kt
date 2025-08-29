@@ -85,8 +85,9 @@ import androidx.compose.ui.unit.sp
 import com.example.tactonprueba.R
 import com.example.tactonprueba.network.MarkerEdit
 import com.example.tactonprueba.network.MarkerMessage
-import com.example.tactonprueba.network.WebSocketClient
 import com.example.tactonprueba.network.bitmapToBase64
+import com.example.tactonprueba.network.WebSocketClient
+import com.example.tactonprueba.network.WebSocketHolder
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -121,7 +122,7 @@ data class UTMCoord(val x: Double, val y: Double, val zone: Int, val band: Char)
 // Componentes =====================================================================================
 // Caja Coordenadas ================================================================================
 @Composable
-fun UTMCoordinateBox(modifier: Modifier = Modifier, location: Point?) {
+fun UTMCoordinateBox(modifier: Modifier = Modifier, location: Point?, usuario: String) {
     var showUTM by remember { mutableStateOf(true) }
     val utm = location?.let { latLonToUTM(it.latitude(), it.longitude()) }
 
@@ -148,10 +149,10 @@ fun UTMCoordinateBox(modifier: Modifier = Modifier, location: Point?) {
         } else {
             if (showUTM) {
                 val huso = "${utm!!.zone}${utm.band}"
-                "Indicativo: Devil\nCoordenadas UTM\n$huso" +
+                "Indicativo: $usuario\nCoordenadas UTM\n$huso" +
                         " X: ${utm.x.toInt()} Y: ${utm.y.toInt()} "
             } else {
-                "Indicativo: Devil\nCoordenadas Lat/Lon\n" +
+                "Indicativo: $usuario\nCoordenadas Lat/Lon\n" +
                         "X: ${"%.5f".format(location.latitude())} " +
                         "Y: ${"%.5f".format(location.longitude())}"
             }
@@ -178,7 +179,7 @@ fun CoordinateInputPanel(
     onMarkerClicked: (PointAnnotation) -> Unit,
     markerList: SnapshotStateList<MarkerData>,
     currentLocation: MutableState<Point?>,
-    wsClient: WebSocketClient
+    usuario: String
 ) {
     var mode by remember { mutableStateOf("UTM") }
 
@@ -215,11 +216,10 @@ fun CoordinateInputPanel(
                 bandChar,
                 pointAnnotationManager,
                 marca,
-                markerIdCounter,
                 onMarkerClicked,
                 markerList,
                 currentLocation,
-                wsClient)
+                usuario)
         }
 
         keyboardController?.hide()
@@ -241,11 +241,10 @@ fun CoordinateInputPanel(
                 parsedLon,
                 pointAnnotationManager,
                 marca,
-                markerIdCounter,
                 onMarkerClicked,
                 markerList,
                 currentLocation,
-                wsClient)
+                usuario)
         }
         keyboardController?.hide()
         onDismissRequest()
@@ -814,11 +813,10 @@ fun goToUTM(
     hemisphere: Char,
     pointAnnotationManager: PointAnnotationManager,
     defaultMarkerBitmap: Bitmap,
-    markerIdCounter: MutableState<Int>,
     onMarkerClicked: (PointAnnotation) -> Unit,
     markerList: SnapshotStateList<MarkerData>,
     currentLocation: MutableState<Point?>,
-    wsClient: WebSocketClient
+    usuario: String
 ) {
     val (lat, lon) = utmToLatLon(x, y, zone, hemisphere)
     val point = Point.fromLngLat(lon, lat)
@@ -832,6 +830,7 @@ fun goToUTM(
         id = markerList.size+1,
         currentLocation = currentLocation,
         markerList = markerList,
+        usuario = usuario,
         onMarkerClicked = onMarkerClicked,
     )
 
@@ -840,7 +839,7 @@ fun goToUTM(
     val edit = MarkerEdit(
         id = markerList.size + 1,
         name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
-        createdBy = "Devil",
+        createdBy = usuario,
         distance = markerList.last()?.distance,
         point = point,
         type = MarkerType.NORMAL,
@@ -850,12 +849,12 @@ fun goToUTM(
     val markerMsg = MarkerMessage(
         id = markerList.size+1,
         type = "create",
-        user = "Devil",
+        user = usuario,
         marker = edit,
 
         )
 
-    wsClient.sendMessage(Gson().toJson(markerMsg))
+    WebSocketHolder.wsClient?.sendMessage(Gson().toJson(markerMsg))
 
 
 }
@@ -867,11 +866,10 @@ fun goToLatLon(
     longitude: Double,
     pointAnnotationManager: PointAnnotationManager,
     defaultMarkerBitmap: Bitmap,
-    markerIdCounter: MutableState<Int>,
     onMarkerClicked: (PointAnnotation) -> Unit,
     markerList: SnapshotStateList<MarkerData>,
     currentLocation: MutableState<Point?>,
-    wsClient: WebSocketClient
+    usuario: String
 ) {
     val point = Point.fromLngLat(longitude, latitude)
     cameraMove(mapView, point)
@@ -889,6 +887,7 @@ fun goToLatLon(
         id = markerList.size+1,
         currentLocation = currentLocation,
         markerList = markerList,
+        usuario = usuario,
         onMarkerClicked = onMarkerClicked,
     )
 
@@ -897,7 +896,7 @@ fun goToLatLon(
     val edit = MarkerEdit(
         id = markerList.size + 1,
         name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
-        createdBy = "Devil",
+        createdBy = usuario,
         distance = markerList.last()?.distance,
         point = point,
         type = MarkerType.NORMAL,
@@ -907,12 +906,12 @@ fun goToLatLon(
     val markerMsg = MarkerMessage(
         id = markerList.size+1,
         type = "create",
-        user = "Devil",
+        user = usuario,
         marker = edit,
 
         )
 
-    wsClient.sendMessage(Gson().toJson(markerMsg))
+    WebSocketHolder.wsClient?.sendMessage(Gson().toJson(markerMsg))
 
 
 }

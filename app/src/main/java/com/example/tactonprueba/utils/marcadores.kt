@@ -357,6 +357,7 @@ fun MarkerMenu(
 
     var isUTM by remember { mutableStateOf(false) }
     val markerName = selectedMarker.getData()?.asString ?: "Sin nombre"
+    val usuario = markerList.find { it.point == selectedMarker.point }
     val point =
         Point.fromLngLat(selectedMarker.point.longitude(), selectedMarker.point.latitude())
 
@@ -496,7 +497,7 @@ fun MarkerMenu(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(12.dp),
-                    owner = "Devil", // 👈 owner Cambiar y reutilizar
+                    owner = usuario!!.createdBy, // 👈 owner Cambiar y reutilizar
                     markerName = markerName,
                     distance = distance,
                     coords = formatCoords(),
@@ -526,6 +527,7 @@ fun MarkerInfo(
     modifier: Modifier = Modifier,
     coords: String
 ) {
+
     Card(
         modifier = modifier.width(200.dp).padding(top = 20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
@@ -642,7 +644,7 @@ fun placeMarker(
     isTutelaMode: MutableState<Boolean> = mutableStateOf(false),
     tutelaList: SnapshotStateList<TutelaData?> = mutableStateListOf(),
     tutelaData: TutelaData? = null,
-
+    usuario: String
     ) {
 
     var distance = TurfMeasurement.distance(
@@ -679,6 +681,7 @@ fun placeMarker(
         medevacData = medevacData,
         tutelaList = tutelaList,
         tutelaData = tutelaData,
+        createdBy = usuario
     )
 
     // Listener de click en el marcador
@@ -702,7 +705,7 @@ private fun saveMarker(
     medevacList: SnapshotStateList<MedevacData?> = mutableStateListOf(),
     medevacData: MedevacData? = null,
     tutelaList: SnapshotStateList<TutelaData?> = mutableStateListOf(),
-    tutelaData: TutelaData? = null
+    tutelaData: TutelaData? = null,
 ) {
 
     // Guarda el marcador según el tipo
