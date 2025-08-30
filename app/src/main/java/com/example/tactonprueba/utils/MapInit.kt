@@ -19,6 +19,7 @@ object MapInit {
 
     // Estilos de mapa
     const val NORMAL = "mapbox://styles/devilwolverine/cmdcvi8dx00a701r108ticovj"
+    const val TOPO = "mapbox://styles/mapbox/outdoors-v12"
     const val SATELLITE = "mapbox://styles/mapbox/satellite-streets-v12"
     const val LIGHT = "mapbox://styles/mapbox/light-v11"
     const val DARK = "mapbox://styles/mapbox/dark-v11"

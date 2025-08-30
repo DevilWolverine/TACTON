@@ -26,6 +26,16 @@ dependencyResolutionManagement {
     }
 }
 
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") } // 👈 añadir esto
+    }
+}
+
+
 rootProject.name = "TACTON Prueba"
 include(":app")
  

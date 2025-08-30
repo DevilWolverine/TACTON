@@ -3,6 +3,7 @@ package com.example.tactonprueba.ui.theme
 import com.example.tactonprueba.network.PositionMessage
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.activity.compose.LocalActivity
@@ -21,6 +22,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -29,7 +31,6 @@ import com.example.tactonprueba.network.MapStyleConfig
 import com.example.tactonprueba.network.MarkerEdit
 import com.example.tactonprueba.network.MarkerMessage
 import com.example.tactonprueba.network.WebSocketClient
-import com.example.tactonprueba.network.WebSocketConnect
 import com.example.tactonprueba.network.WebSocketHolder
 import com.example.tactonprueba.network.WebSocketHolder.wsClient
 import com.example.tactonprueba.network.bitmapToBase64
@@ -53,6 +54,7 @@ import com.example.tactonprueba.utils.TutelaData
 import com.example.tactonprueba.utils.TutelaFormPanel
 import com.example.tactonprueba.utils.TutelaReportPanel
 import com.example.tactonprueba.utils.UTMCoordinateBox
+import com.example.tactonprueba.utils.UserGuideScreen
 import com.example.tactonprueba.utils.UserPreferences
 import com.example.tactonprueba.utils.cameraMove
 import com.example.tactonprueba.utils.centerMapOnUserLocation
@@ -66,6 +68,11 @@ import com.google.gson.JsonPrimitive
 import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.ImageHolder
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import com.mapbox.maps.MapView
 import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
 import com.mapbox.maps.plugin.LocationPuck2D
@@ -142,6 +149,7 @@ fun MapScreen() {
     var isPlacingMarker = remember { mutableStateOf(false) }
     val hasLocation = remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
+    var showUserGuide by remember { mutableStateOf(false) }
 
     // Manejo de listas ============================================================================
     val markerIdCounter = remember { mutableIntStateOf(1) }
@@ -155,6 +163,42 @@ fun MapScreen() {
     val tutelaList = remember { mutableStateListOf<TutelaData?>() }
     val tutelaPoint = remember { mutableStateOf<Point?>(null) }
     val warningIdCounter = remember { mutableIntStateOf(1) }
+
+    // Estado permisos
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    // Launcher para pedir permisos
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            hasLocationPermission = granted
+        }
+    )
+
+    // Si no tiene permisos → pedirlos
+    LaunchedEffect(Unit) {
+        if (!hasLocationPermission) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    // Si no hay permisos, mostramos aviso y no cargamos el mapa
+    if (!hasLocationPermission) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Necesitas conceder permisos de ubicación para usar la aplicación.")
+        }
+        return
+    }
 
     // WebSocket ===================================================================================
     val remoteUsers = remember { mutableStateMapOf<String, Pair<Point, Double>>() }
@@ -434,14 +478,20 @@ fun MapScreen() {
                                 }
                             }
 
-                            "Cerrar" -> {
-                                isMenuOpen.value = false
+                            "Guia" -> {
+                                coroutineScope.launch {
+                                    delay(130)
+                                    isMenuOpen.value = false
+                                    showUserGuide = true
+                                }
+                            }
+
+                            "Salir" -> {
                                 coroutineScope.launch {
                                     delay(130)
                                     isMenuOpen.value = false
                                     showExitDialog = true
                                 }
-
                             }
                         }
                     },
@@ -481,6 +531,14 @@ fun MapScreen() {
                             TextButton(onClick = { showExitDialog = false }) {
                                 Text("Cancelar")
                             }
+                        }
+                    )
+                }
+
+                if (showUserGuide) {
+                    UserGuideScreen(
+                        onDismissRequest = {
+                            showUserGuide = false
                         }
                     )
                 }

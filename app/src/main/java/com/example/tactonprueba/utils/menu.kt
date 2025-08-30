@@ -172,7 +172,7 @@ fun BottomPanelMenu(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.5f)
+                    .fillMaxHeight(0.55f)
                     .align(Alignment.BottomCenter)
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(16.dp)
@@ -259,8 +259,6 @@ fun BottomPanelMenu(
                         setShowMedevacList = { showMedevacList = it },
                         setShowPreferences = { showPreferences = it },
                         setShowServer = { showServer = it },
-                        showExitDialog = showExitDialog,
-                        setShowExitDialog = { showExitDialog = it },
                         distantRequest = { distantRequest -> distantRequest(distantRequest) },
                         onMarkerSelected = onMarkerSelected,
                         setPickerOptions = { pickerOptions = it },
@@ -319,8 +317,8 @@ private fun RenderMainMenu(
         item { MenuCard(Icons.Default.BusAlert,"Medevac") { onSelect("Medevac") } }
         item { MenuCard(Icons.Default.Style,"Tutela") { onSelect("Tutela") } }
         item { MenuCard(Icons.Default.Construction,"Opciones") { onSelect("Opciones") } }
-        item { MenuCard(Icons.Default.AdsClick,"Guía de usuario") { onSelect("Guia") } }
-        item { MenuCard(Icons.Default.Cancel,"Salir") { onOptionSelected("Cerrar") } }
+        item { MenuCard(Icons.Default.AdsClick,"Guía de usuario") { onOptionSelected("Guia") } }
+        item { MenuCard(Icons.Default.Cancel,"Salir") { onOptionSelected("Salir") } }
     }
 }
 
@@ -348,14 +346,12 @@ fun RenderSubMenu(
     setShowTutelaList: (Boolean) -> Unit,
     showMarkerList: Boolean,
     showMarkerPicker: Boolean,
-    setShowExitDialog: (Boolean) -> Unit,
     showMedevacList: Boolean,
     showPreferences: Boolean,
     showServer: Boolean,
     showTutelaList: Boolean,
     submenu: String?,
     tutelaList: SnapshotStateList<TutelaData?> = mutableStateListOf(),
-    showExitDialog: Boolean,
 ) {
 
     // Selección de la opción de los submenús
@@ -368,11 +364,12 @@ fun RenderSubMenu(
             ) {
                 // Estilos de mapas
                 SubmenuCard("Normal") { onStyleSelected(MapInit.NORMAL) }
+                SubmenuCard("Topográfico") { onStyleSelected(MapInit.TOPO) }
                 SubmenuCard("Satélite") { onStyleSelected(MapInit.SATELLITE) }
                 SubmenuCard("Claro") { onStyleSelected(MapInit.LIGHT) }
                 SubmenuCard("Oscuro") { onStyleSelected(MapInit.DARK) }
-                SubmenuCard("Nav_Dia") { onStyleSelected(MapInit.NAV_DAY) }
-                SubmenuCard("Nav_Noche") { onStyleSelected(MapInit.NAV_NIGHT) }
+                SubmenuCard("Navegaciín diurna") { onStyleSelected(MapInit.NAV_DAY) }
+                SubmenuCard("Navegación nocturna") { onStyleSelected(MapInit.NAV_NIGHT) }
             }
         }
 

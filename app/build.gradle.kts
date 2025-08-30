@@ -8,6 +8,17 @@ android {
     namespace = "com.example.tactonprueba"
     compileSdk = 35
 
+    packagingOptions {
+        jniLibs {
+            pickFirsts += listOf(
+                "lib/arm64-v8a/libc++_shared.so",
+                "lib/armeabi-v7a/libc++_shared.so",
+                "lib/x86/libc++_shared.so",
+                "lib/x86_64/libc++_shared.so"
+            )
+        }
+    }
+
     defaultConfig {
         applicationId = "com.example.tactonprueba"
         minSdk = 30
@@ -60,6 +71,10 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.datastore.core)
+    implementation(libs.android.pdf.viewer){
+        exclude(group = "com.android.support")
+    }
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
