@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import com.mapbox.common.MapboxOptions
 
+// Objeto MapInit ==================================================================================
 object MapInit {
     @SuppressLint("DiscouragedApi")
 
@@ -25,6 +26,5 @@ object MapInit {
     const val DARK = "mapbox://styles/mapbox/dark-v11"
     const val NAV_DAY = "mapbox://styles/mapbox/navigation-guidance-day-v4"
     const val NAV_NIGHT = "mapbox://styles/mapbox/navigation-guidance-night-v4"
-
 
 }

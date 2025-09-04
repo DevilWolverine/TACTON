@@ -5,7 +5,6 @@ import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.Log
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.tactonprueba.utils.MarkerData
@@ -27,10 +26,12 @@ import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
-import kotlinx.coroutines.*
 import java.io.ByteArrayOutputStream
 import kotlin.math.min
+import kotlinx.coroutines.*
 
+// Modelo Datos ====================================================================================
+// Objeto WebSocket
 object WebSocketHolder {
     var wsClient: WebSocketClient? = null
     val isConnected = mutableStateOf(false)
@@ -38,7 +39,7 @@ object WebSocketHolder {
 
 }
 
-// Posición de usuario
+// Posición del usuario
 data class PositionMessage(
     val type: String,
     val user: String,
@@ -69,30 +70,30 @@ data class MarkerEdit(
     val type: MarkerType,
 )
 
+// Eliminar marcador
 data class DeleteMessage(
     val id: Int,
     val point: Point,
     val type: String = "delete"
 )
 
+// Estado inicial
 data class InitStateMessage(
     val type: String = "init_state",
     val users: Conect,
     val markers: List<MarkerMessage>
 )
 
+// Conexión
 data class Conect(
     val id: Int,
     val user: String,
     val point: Point,
     val bearing: Double
 )
+// FIN Modelo Datos ================================================================================
 
-// 🌍 Variables globales para toda la app
-
-
-
-
+// Clase Cliente WebSocket =========================================================================
 class WebSocketClient(
     private val remoteUsers: MutableMap<String, Pair<Point, Double>>,
     private val userSourceRef: MutableState<GeoJsonSource?>,
@@ -101,13 +102,9 @@ class WebSocketClient(
 ) {
     private val animationJobs = mutableMapOf<String, Job>()
     private var config: WebSocketConnect? = null
+    //private var onMessageCallback: ((String) -> Unit)? = null
 
-    private var onMessageCallback: ((String) -> Unit)? = null
-
-    fun setOnMessage(callback: (String) -> Unit) {
-        onMessageCallback = callback
-    }
-
+    // Conectar al servidor
     fun connect(serverIp: String, port: Int, username: String) {
         config = WebSocketConnect { raw ->
             onMessage(raw) // 👈 delega al callback que definiste en MapScreen
@@ -122,16 +119,12 @@ class WebSocketClient(
         Log.d("WebSocketClient", "👋 Usuario $username identificado en $serverIp:$port")
     }
 
-    /**
-     * Enviar un mensaje al servidor.
-     */
+    // Enviar un mensaje al servidor.
     fun sendMessage(msg: String) {
         config?.sendMessage(msg)
     }
 
-    /**
-     * Cerrar conexión.
-     */
+    // Desconectar del servidor
     fun close() {
         config?.close()
         WebSocketHolder.isConnected.value = false
@@ -157,17 +150,20 @@ class WebSocketClient(
     ) {
         try {
             val gson = Gson()
-            val base = gson.fromJson(rawMsg, Map::class.java) // miramos solo el "type"
+            val base = gson.fromJson(rawMsg, Map::class.java)
 
             when (base["type"]) {
+                // Mensaje de inicio, recreación de marcadores en memoria
                 "init_state" -> {
                     val msg = gson.fromJson(rawMsg, InitStateMessage::class.java)
 
+                    // Limpieza de marcadores
                     markerList.clear()
                     medevacList.clear()
                     tutelaList.clear()
                     pointAnnotationManager?.deleteAll()
 
+                    // Creación de marcadores en memoria
                     msg.markers.forEach { marker ->
                         pointAnnotationManager?.let { mgr ->
                             val fakeCreate = MarkerMessage(
@@ -178,7 +174,7 @@ class WebSocketClient(
                                 tutela = marker.tutela,
                                 marker = marker.marker
                             )
-                            // Reutilizas la misma ruta que un mensaje entrante normal
+
                             handleIncomingRawMessage(
                                 Gson().toJson(fakeCreate),
                                 pointAnnotationManager,
@@ -202,21 +198,27 @@ class WebSocketClient(
                     }
                 }
 
+                // Mensaje para actualizar posición
                 "position" -> {
                     val msg = gson.fromJson(rawMsg, PositionMessage::class.java)
-                    handleIncomingLocation(msg)   // 👈 aquí reutilizas tu función ya hecha
+                    handleIncomingLocation(msg)
 
                 }
 
+                // Mensaje creación de marcador
                 "create" -> {
                     val msg = gson.fromJson(rawMsg, MarkerMessage::class.java)
-                    val point = Point.fromLngLat(msg.marker.point.longitude(), msg.marker.point.latitude())
-
-                    // seleccionar icono según tipo (aquí de momento genérico)
-                    Log.d("WebSocket", "📩 Mensaje bruto: ")
+                    val point = Point.fromLngLat(
+                        msg.marker.point.longitude(),
+                        msg.marker.point.latitude()
+                    )
 
                     val option = msg.marker.type
 
+                    // Mensaje interno
+                    Log.d("WebSocket", "Creación de marcador.")
+
+                    // Crear marcador en el mapa según el tipo de marcador
                     when (option) {
                         MarkerType.NORMAL -> {
                             val bmp = base64ToBitmap(msg.marker.icon!!)
@@ -249,7 +251,6 @@ class WebSocketClient(
                                     markerList = markerList,
                                     medevacData = msg.medevac!!,
                                     medevacList = medevacList,
-                                    isMedevacMode = isMedevacMode,
                                     onMarkerClicked = { clicked ->
                                         selectedMarker.value = clicked
                                     }
@@ -282,7 +283,6 @@ class WebSocketClient(
                                         currentLocation = currentLocation,
                                         markerList = markerList,
                                         usuario = msg.user,
-                                        isTutelaMode = isTutelaMode,
                                         onMarkerClicked = { clicked ->
                                             selectedMarker.value = clicked
                                         },
@@ -306,7 +306,10 @@ class WebSocketClient(
 
                             } else {
                                 pointAnnotationManager?.let { mgr ->
-                                    val updatedTutela = tutelaList.last()?.copy(localizacion = tutelaList.last()?.localizacion)
+                                    val updatedTutela = tutelaList.last()?.copy(
+                                        localizacion = tutelaList.last()?.localizacion
+                                    )
+
                                     placeMarker(
                                         mgr = mgr,
                                         bmp = warningIcon!!,
@@ -315,7 +318,6 @@ class WebSocketClient(
                                         currentLocation = currentLocation,
                                         markerList = markerList,
                                         usuario = msg.user,
-                                        isTutelaMode = isTutelaMode,
                                         onMarkerClicked = { clicked ->
                                             selectedMarker.value = clicked
                                         },
@@ -331,7 +333,7 @@ class WebSocketClient(
                                                     " ${msg.user}",
                                             icon = warningIcon,
                                             distance = tutelaList.last()?.distancia?.toDouble(),
-                                            point = msg.tutela.puesto!!,
+                                            point = msg.tutela.puesto,
                                             type = MarkerType.TUTELA,
                                             tutela = updatedTutela
                                         )
@@ -340,14 +342,16 @@ class WebSocketClient(
                                 }
                             }
 
-                        } else -> {}
+                        }
                     }
                 }
 
+                // Mensaje eliminación de marcador
                 "delete" -> {
                     val gson = Gson()
                     val msg = gson.fromJson(rawMsg, DeleteMessage::class.java)
-                    Log.d("WebSocket", "🗑 Eliminar marcador en ${msg.point} recibido")
+
+                    Log.d("WebSocket", "Eliminación de marcador")
                     removeMarkerByPoint(
                          msg.point,
                          markerList,
@@ -356,16 +360,18 @@ class WebSocketClient(
                          pointAnnotationManager!!,
                      )
 
+                    // Desactivar medición
                     if (measuringMarker.value == msg.point) {
                         measuringMarker.value = null
                         polylineManager.value?.deleteAll()
                     }
                 }
 
+                // Mensaje de desconexión
                 "user_disconnect" -> {
                     val user = base["user"] as String
                     remoteUsers.remove(user)
-                    Log.d("WebSocket", "❌ Usuario $user desconectado")
+                    Log.d("WebSocket", "Desconexión del usuario: $user")
 
                     val features = remoteUsers.map { (id, pair) ->
                         val (pt, brg) = pair
@@ -380,11 +386,11 @@ class WebSocketClient(
                 }
             }
         } catch (e: Exception) {
-            Log.e("WebSocketConfig", "❌ Error parseando mensaje: ${e.message}")
+            Log.e("WebSocketConfig", "Error parseando mensaje: ${e.message}")
         }
     }
 
-    // Manejar mensajes de posición
+    // Animación de posición
     fun handleIncomingLocation(msg: PositionMessage) {
         if (msg.type != "position") return
 
@@ -393,7 +399,6 @@ class WebSocketClient(
         val newPoint = msg.point
         val newBearing = msg.bearing ?: 0.0
 
-        // cancelar animación previa si existe
         animationJobs[msg.user]?.cancel()
 
         if (oldPoint != null) {
@@ -444,25 +449,23 @@ class WebSocketClient(
         }
     }
 
-
+    // Obtener lista de usuarios
     fun getConnectedUsers(): List<String> {
         return remoteUsers.keys.toList()
     }
 
-    fun connectAndIdentify(wsClient: WebSocketConnect, username: String) {
-        wsClient.connect("192.168.1.102", 8080)  // o la IP de tu ServerConfigurationScreen
-        val initMsg = """{"type":"hello","user":"$username"}"""
-        wsClient.sendMessage(initMsg)
-        Log.d("WebSocketClient", "👋 Usuario $username identificado en el servidor")
-    }
-
-
-    private fun interpolateBearing(oldBearing: Double, newBearing: Double, fraction: Float): Double {
+    // Orientación del dispositivo
+    private fun interpolateBearing(
+        oldBearing: Double,
+        newBearing: Double,
+        fraction: Float
+    ): Double {
         var delta = (newBearing - oldBearing + 540) % 360 - 180
         return (oldBearing + delta * fraction + 360) % 360
     }
 }
 
+// Transformar de bitmap a base 64
 fun bitmapToBase64(bitmap: Bitmap): String {
     val byteArrayOutputStream = ByteArrayOutputStream()
     bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
@@ -470,14 +473,21 @@ fun bitmapToBase64(bitmap: Bitmap): String {
     return Base64.encodeToString(byteArray, Base64.DEFAULT)
 }
 
+// Transformar de base 64 a bitmap
 fun base64ToBitmap(base64Str: String): Bitmap {
     val decodedBytes = Base64.decode(base64Str, Base64.DEFAULT)
     return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
 }
 
+// Obtener estilo del mapa =========================================================================
 object MapStyleConfig {
 
-    fun applyRemoteUsersStyle(style: Style, userSourceRef: MutableState<GeoJsonSource?>, navBitmap: Bitmap) {
+    // Recrear mapeado y ubicación
+    fun applyRemoteUsersStyle(
+        style: Style,
+        userSourceRef: MutableState<GeoJsonSource?>,
+        navBitmap: Bitmap
+    ) {
         // Crear GeoJsonSource vacío
         val source = GeoJsonSource.Builder("remote-users-source")
             .featureCollection(FeatureCollection.fromFeatures(emptyList()))
@@ -493,7 +503,7 @@ object MapStyleConfig {
             iconImage("remote-user-icon")
             iconAllowOverlap(true)
             iconIgnorePlacement(true)
-            textField(get("user"))   // mostrar nombre del usuario
+            textField(get("user"))
             textOffset(listOf(0.0, 1.5))
             textSize(12.0)
             iconRotate(get("bearing"))

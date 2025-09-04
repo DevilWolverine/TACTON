@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,12 +29,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.tactonprueba.R
 
+// Componente Guía =================================================================================
 @Composable
 fun UserGuideScreen(onDismissRequest: () -> Unit) {
-    var darkTheme by remember { mutableStateOf(true) } // 👈 estado tema
 
+    // Temas
+    var darkTheme by remember { mutableStateOf(true) }
     var visible by remember { mutableStateOf(false) }
-    // 🎨 Definición de colores según tema
+
+    // Definición de colores según tema
     val backgroundColor = if (darkTheme) Color(0xFF121212) else Color(0xFFFDFDFD)
     val primaryColor = if (darkTheme) Color(0xFF00E5FF) else Color(0xFF1976D2)
     val secondaryColor = if (darkTheme) Color(0xFF69F0AE) else Color(0xFF388E3C)
@@ -48,10 +50,10 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
     AnimatedVisibility(
         visible = visible,
         enter = slideInVertically(
-            initialOffsetY = { it } // empieza desde abajo
+            initialOffsetY = { it }
         ) + fadeIn(),
         exit = slideOutVertically(
-            targetOffsetY = { it } // se va hacia abajo
+            targetOffsetY = { it }
         ) + fadeOut(),
         modifier = Modifier
             .fillMaxSize()
@@ -65,7 +67,6 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // 🔹 Cabecera con botón de intercambio
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -115,16 +116,15 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // ======================
-                // PANTALLA PRINCIPAL
-                // ======================
+
                 SectionHeader("Pantalla Principal", secondaryColor, textPrimary)
 
                 FeatureItem(
                     icon = Icons.Default.Map,
                     title = "Mapa",
-                    text = "Muestra tu ubicación, marcadores y usuarios en tiempo real. " +
-                            "Contiene los componentes que interactúan con el mapa.",
+                    text = "Muestra la ubicación, marcadores y usuarios en tiempo real. " +
+                            "Se puede rotar, ampliar, mover y cambiar el eje" +
+                            " de la perspectiva.",
                     primaryColor, textPrimary, textSecondary
                 )
 
@@ -132,66 +132,59 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
                     icon = Icons.Default.Explore,
                     title = "Brújula",
                     text = "Tiene dos funciones principales:\n" +
-                            "    - Pulsar: La brújula centrará el mapa\n" +
-                            "      en nuestra posición.\n" +
-                            "    - Mantener pulsado: Cambiaremos entre\n" +
+                            "    - Pulsar: Centra el mapa en la\n" +
+                            "      posición del dispositivo.\n" +
+                            "    - Mantener pulsado: Cambia entre\n" +
                             "      los modos de vista de la brújula,\n" +
                             "      estático o dinámico."
                     , primaryColor, textPrimary, textSecondary
                 )
 
                 FeatureItem(
-                    icon = Icons.Default.PinDrop,
+                    icon = Icons.Default.MyLocation,
                     title = "Caja de coordenadas",
                     text = "Muestra el indicativo del usuario y las coordenadas exactas de su " +
-                            "posición en todo momento. Si pulsamos cambiaremos entre sus " +
+                            "posición en todo momento. Al pulsar, cambiará entre sus " +
                             "modos UTM y Latitud/Longitud.",
                     primaryColor, textPrimary, textSecondary
                 )
 
                 FeatureItem(
-                    icon = Icons.Default.AddLocationAlt,
+                    icon = Icons.Default.AppRegistration,
                     title = "Barra de herramientas lateral",
                     text = "Compuesta por tres secciones: \n" +
-                            "    - Menú: Abrirá o cerrará el menú. \n" +
+                            "    - Menú: Abre o cierra el menú. \n" +
                             "    - Lupa: Abre el panel de introducción de\n" +
                             "      coordenadas. Al ir a las coordenadas\n" +
                             "      seleccionadas colocará un marcador\n" +
                             "      en el punto.\n" +
-                            "    - Lock: Alternará entre camara fija o libre.",
+                            "    - Lock: Alterna entre camara fija o libre.",
                     primaryColor, textPrimary, textSecondary
                 )
 
                 FeatureItem(
-                    icon = Icons.Default.Straighten,
+                    icon = Icons.Default.WrongLocation,
                     title = "Cancelar marcador",
-                    text = "Aparecerá en pantalla cuando entremos en modo colocar marcador" +
-                            "permitiendonos cancelar la acción.",
+                    text = "Aparece en pantalla al entrar en modo colocar marcador" +
+                            "permitiendo cancelar la acción.",
                     primaryColor, textPrimary, textSecondary
                 )
 
                 FeatureItem(
                     icon = Icons.Default.Straighten,
                     title = "Cajón de distancia",
-                    text = "Aparecerá en pantalla cuando entremos en modo medición.\n" +
-                            "Este modo nos mostrará una línea que nos unirá con " +
+                    text = "Aparece en pantalla al iniciar el modo medición.\n" +
+                            "Este modo muestra una línea que une el dispositivo con " +
                             "el punto seleccionado mostrando la distancia en metros." +
                             "Está compuesto por: \n" +
                             "   - Distancia: Muestra la distancia restante\n" +
                             "     en metros.\n" +
                             "   - Flecha: Indica a la dirección del marcador.\n" +
-                            "     Si la pulsamos podemos cambiar el modo,\n" +
+                            "     Al pulsarla cambia el modo,\n" +
                             "     permitiendo indicar la dirección del\n" +
                             "     marcador según la orientación\n" +
-                            "     del mapa o la dirección del usuario.\n" +
-                            "   - Cruz: Cancelaremos la medición.",
-                    primaryColor, textPrimary, textSecondary
-                )
-
-                FeatureItem(
-                    icon = Icons.Default.Straighten,
-                    title = "Marcadores",
-                    text = "Iconos seleccionables en el mapa.",
+                            "     del mapa o la orientación del usuario.\n" +
+                            "   - Cruz: Cancela la medición.",
                     primaryColor, textPrimary, textSecondary
                 )
 
@@ -199,9 +192,7 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
                     thickness = 2.dp,
                     color = secondaryColor.copy(alpha = 0.3f)
                 )
-                // ======================
-                // MENÚ
-                // ======================
+
                 SectionHeader("Menú", secondaryColor, textPrimary)
 
                 MenuItem(
@@ -214,8 +205,8 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
                 MenuItem(
                     Icons.Default.AddLocationAlt,
                     "Marcadores: ",
-                    "Mostrará una lista de marcadores que podremos seleccionar para " +
-                    "colocarlos en pantalla.",
+                    "Muestra una lista de marcadores para " +
+                    "colocarlos en el mapa.",
                     cardColor, primaryColor, textPrimary, textSecondary
                 )
 
@@ -223,15 +214,15 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
                     Icons.Default.Landscape,
                     "Topografía: ",
                     "Submenú con dos opciones:\n" +
-                    "   - Medir entre puntos: Permitirá seleccionar\n" +
-                    "     un marcador en pantalla o un punto en el\n" +
+                    "   - Medir entre puntos: Permite seleccionar\n" +
+                    "     un marcador o un punto en el\n" +
                     "     mapa para iniciar la medición hasta la\n" +
                     "     opción seleccionada.\n" +
-                    "   - Listado de marcadores: Mostrará una lista\n" +
-                    "     con los marcadores creados en el mapa.\n" +
-                    "     Tiene dos opciones:\n" +
-                    "     ir al marcador o eliminar.\n" +
-                    "     Los medevacs y tutelas no se podrán\n" +
+                    "   - Listado de marcadores: Muestra una lista\n" +
+                    "     de los marcadores activos en el mapa.\n" +
+                    "     Permite realizar dos acciones:\n" +
+                    "     ir al marcador o eliminarlo.\n\n" +
+                    "     * Los medevacs y tutelas no se podrán\n" +
                     "     eliminar desde este menú.",
                     cardColor, primaryColor, textPrimary, textSecondary
                 )
@@ -239,39 +230,40 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
                 MenuItem(
                     Icons.Default.DataExploration,
                     "Ir: ",
-                    "Introduce coordenadas UTM o Lat/Lon para moverte a una ubicación específica.",
+                    "Abre el panel de introducción de coordenadas. Al ir a las coordenadas " +
+                    "seleccionadas colocará un marcador en el punto.",
                     cardColor, primaryColor, textPrimary, textSecondary
                 )
 
                 MenuItem(
                     Icons.Default.BusAlert,
                     "Medevac: ",
-                    "Solicita evacuaciones médicas y revisa el historial de solicitudes. En el " +
-                    "historial podremos eliminar o iniciar una medición hasta el punto.",
+                    "Solicita evacuaciones médicas y revisa el historial de solicitudes. El " +
+                    "historial permite eliminar o iniciar una medición hasta el punto.",
                     cardColor, primaryColor, textPrimary, textSecondary
                 )
 
                 MenuItem(
                     Icons.Default.Style,
                     "Tutela: ",
-                    "Crea informes de observación y accede a informes previos. En los informes" +
-                    "podremos eliminar o iniciar una medición hasta el punto.",
+                    "Crea informes de observación y accede a informes previos. El " +
+                    "historial permite eliminar o iniciar una medición hasta el punto.",
                     cardColor, primaryColor, textPrimary, textSecondary
                 )
 
                 MenuItem(
                     Icons.Default.Construction,
                     "Opciones: ",
-                    "Configura tu usuario y la IP del servidor. Incluye una lista de los " +
-                    "usuarios conectados y nos permite conectarnos o desconectarnos" +
+                    "Configura el usuario y la IP del servidor. Incluye una lista de los " +
+                    "usuarios conectados y permite conectarse o desconectarse" +
                     "del servidor.",
                     cardColor, primaryColor, textPrimary, textSecondary
                 )
 
                 MenuItem(
-                    Icons.Default.ExitToApp,
+                    Icons.Default.Cancel,
                     "Salir",
-                    "Cierra la aplicación de forma segura.",
+                    "Cierra la aplicación.",
                     cardColor, primaryColor, textPrimary, textSecondary
                 )
 
@@ -280,45 +272,45 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
                 OutlinedItem(
                     icon = painterResource(id = R.drawable.nav),
                     title = "Flecha de navegación",
-                    text = "Visualiza tu ubicación y la de otros usuarios en tiempo real.",
+                    text = "Visualiza la ubicación del usuario" +
+                            " y la de otros usuarios en tiempo real.",
                     primaryColor, textPrimary, textSecondary, cardColor
                 )
 
                 OutlinedItem(
                     icon = painterResource(id = R.drawable.pin),
                     title = "Marcadores básicos",
-                    text = "Marcadores que nos informarán de eventos o puntos de interés." +
-                            "Al interactuar con ellos nos aparecerá un menú con opciones.\n" +
-                            "    - Visualización: Mostrará u ocultará la\n" +
+                    text = "Marcadores que informan de eventos o puntos de interés." +
+                            "Al interactuar con aparece un menú con las siguientes opciones:\n" +
+                            "    - Visualización: Muestra u oculta la\n" +
                             "      información del marcador.\n" +
                             "    - Editar: Permite cambiar el marcador.\n" +
-                            "    - Medir: Iniciará el modo medición.\n" +
-                            "    - Eliminar: Eliminará el marcador.",
+                            "    - Medir: Inicia el modo medición.\n" +
+                            "    - Eliminar: Elimina el marcador.",
                     primaryColor, textPrimary, textSecondary, cardColor
                 )
 
                 OutlinedItem(
                     icon = painterResource(id = R.drawable.hospital),
                     title = "Marcador medevac",
-                    text = "Si lo seleccionamos podremos ver la información de la medevac.",
+                    text = "Muestra la información del medevac.",
                     primaryColor, textPrimary, textSecondary, cardColor
                 )
 
                 OutlinedItem(
                     icon = painterResource(id = R.drawable.style),
                     title = "Marcador tutela puesto",
-                    text = "Mostrará la información del tutela.",
+                    text = "Muestra la información del tutela.",
                     primaryColor, textPrimary, textSecondary, cardColor
                 )
 
                 OutlinedItem(
                     icon = painterResource(id = R.drawable.warning),
                     title = "Marcador tutela observado",
-                    text = "Mostrará la información del tutela ubicado en el punto observado.",
+                    text = "Muestra la información del tutela desde el punto observado.",
                     primaryColor, textPrimary, textSecondary, cardColor
                 )
 
-                // Botón cerrar
                 Button(
                     onClick = onDismissRequest,
                     modifier = Modifier
@@ -332,7 +324,9 @@ fun UserGuideScreen(onDismissRequest: () -> Unit) {
         }
     }
 }
+// FIN Componente Guía =============================================================================
 
+// Funciones Auxiliares ============================================================================
 @Composable
 fun SectionHeader(text: String, color: Color, textColor: Color) {
     Text(

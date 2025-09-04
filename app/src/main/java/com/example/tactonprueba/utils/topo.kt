@@ -152,9 +152,7 @@ fun removeMarkerAndCancelMeasure(
     markers: MutableList<MarkerData>,
     annotationManager: PointAnnotationManager,
     medevacs: SnapshotStateList<MedevacData?> = mutableStateListOf(),
-    isMedevacMode: MutableState<Boolean> = mutableStateOf(false),
     tutelas: SnapshotStateList<TutelaData?> = mutableStateListOf(),
-    isTutelaMode: MutableState<Boolean> = mutableStateOf(false),
     measuringMarker: MutableState<Point?>,
     polylineManager: MutableState<PolylineAnnotationManager?>,
 ) {

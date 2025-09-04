@@ -7,12 +7,17 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-// 🔹 DataStore extension en el contexto
+// Variabless Globales =============================================================================
+// Almacenar la información del usuario
 val Context.userDataStore by preferencesDataStore(name = "user_prefs")
 
+// FIN Variables Globales ==========================================================================
+
+// Modelo de Datos =================================================================================
+// Objeto Preferencias Usuario =====================================================================
 object UserPreferences {
 
-    // 🔹 Claves para los datos
+    // Datos del usuario
     private val INDICATIVO = stringPreferencesKey("indicativo")
     private val CIA = stringPreferencesKey("cia")
     private val SCC = stringPreferencesKey("scc")
@@ -20,7 +25,7 @@ object UserPreferences {
     private val EMPLEO = stringPreferencesKey("empleo")
     private val SERVIDOR = stringPreferencesKey("servidor")
 
-    // 🔹 Guardar todos los datos de usuario
+    // Guarda todos los datos
     suspend fun saveUserData(
         context: Context,
         indicativo: String,
@@ -40,7 +45,7 @@ object UserPreferences {
         }
     }
 
-    // 🔹 Obtener los datos como Flow (para observar cambios en Compose)
+    // Obtener los datos
     fun getUserData(context: Context): Flow<Map<String, String>> {
         return context.userDataStore.data.map { prefs ->
             mapOf(

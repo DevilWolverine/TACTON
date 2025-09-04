@@ -1,7 +1,5 @@
 package com.example.tactonprueba.utils
 
-import android.app.Activity
-import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -39,12 +37,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.tactonprueba.network.WebSocketHolder
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
@@ -368,7 +364,7 @@ fun RenderSubMenu(
                 SubmenuCard("Satélite") { onStyleSelected(MapInit.SATELLITE) }
                 SubmenuCard("Claro") { onStyleSelected(MapInit.LIGHT) }
                 SubmenuCard("Oscuro") { onStyleSelected(MapInit.DARK) }
-                SubmenuCard("Navegaciín diurna") { onStyleSelected(MapInit.NAV_DAY) }
+                SubmenuCard("Navegación diurna") { onStyleSelected(MapInit.NAV_DAY) }
                 SubmenuCard("Navegación nocturna") { onStyleSelected(MapInit.NAV_NIGHT) }
             }
         }
@@ -579,12 +575,6 @@ fun MarkerList(
     }
 }
 
-@Composable
-fun close() {
-    val activity = LocalActivity.current as? Activity
-    activity?.finish()
-}
-
 // Lista de marcadores =============================================================================
 @Composable
 fun MarkerListItem(
@@ -744,10 +734,7 @@ fun MedevacItem(
     isMeasuringMode: MutableState<Boolean>,
     measuringMarker: MutableState<Point?>,
     polylineManager: MutableState<PolylineAnnotationManager?>,
-
     ) {
-
-    val isMedevacMode = remember { mutableStateOf(true) }
 
     Card(
         modifier = Modifier
@@ -788,7 +775,6 @@ fun MedevacItem(
                                 markers = markers,
                                 annotationManager = pointAnnotationManager,
                                 medevacs = medevacs,
-                                isMedevacMode = isMedevacMode,
                                 measuringMarker = measuringMarker,
                                 polylineManager = polylineManager,
                             )
@@ -859,7 +845,7 @@ fun MedevacItem(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    Text("L3 = ${abbrev(medevac?.line3)}",
+                    Text("L3 = ${abbrev(medevac?.line3)} ${medevac?.line3[2]}",
                         color = Color.White, fontSize = 14.sp)
 
                     Text("L4 = ${abbrev(medevac?.line4)}",
@@ -889,7 +875,7 @@ fun MedevacItem(
                 ) {
                     Text(
                         text = "L9 = ${
-                            if (medevac?.line9 == "Clear terrain") "-" 
+                            if (medevac?.line9 == "Despejado") "-" 
                             else medevac?.line9.orEmpty()
                         }",
                         color = Color.White,
@@ -962,8 +948,6 @@ fun TutelaItem(
     measuringMarker: MutableState<Point?>,
     polylineManager: MutableState<PolylineAnnotationManager?>,
 ) {
-
-    val isTutelaMode = remember { mutableStateOf(true) }
     val report = tutela?.tipo == TutelaTipo.REPORT
 
     Card(
@@ -1015,7 +999,6 @@ fun TutelaItem(
                                     markers = markers,
                                     annotationManager = pointAnnotationManager,
                                     tutelas = tutelas,
-                                    isTutelaMode = isTutelaMode,
                                     measuringMarker = measuringMarker,
                                     polylineManager = polylineManager,
 
@@ -1027,7 +1010,6 @@ fun TutelaItem(
                                     markers = markers,
                                     annotationManager = pointAnnotationManager,
                                     tutelas = tutelas,
-                                    isTutelaMode = isTutelaMode,
                                     measuringMarker = measuringMarker,
                                     polylineManager = polylineManager,
 
@@ -1099,15 +1081,13 @@ private fun pushBack(backStack: MutableList<() -> Unit>, handler: () -> Unit) {
 private fun popBack(backStack: MutableList<() -> Unit>): Boolean {
     val lastIndex = backStack.lastIndex
     if (lastIndex < 0) return false
-    // copiar referencia ANTES de mutar la lista
     val handler = backStack[lastIndex]
     backStack.removeAt(lastIndex)
     return try {
         handler.invoke()
         true
     } catch (_: Throwable) {
-        // si el handler falla, no tumbamos la app
-        true // lo consideramos consumido igualmente
+        true
     }
 }
 

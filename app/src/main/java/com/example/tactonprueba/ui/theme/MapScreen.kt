@@ -156,15 +156,12 @@ fun MapScreen() {
     val markerList = remember { mutableStateListOf<MarkerData>() }
     val measuringMarker = remember { mutableStateOf<Point?>(null) }
     val measuringTarget = remember { mutableStateOf<PointAnnotation?>(null) }
-    val medevacIdCounter = remember { mutableIntStateOf(1) }
     val medevacList = remember { mutableStateListOf<MedevacData?>() }
     val medevacPoint = remember { mutableStateOf<Point?>(null) }
-    val tutelaIdCounter = remember { mutableIntStateOf(1) }
     val tutelaList = remember { mutableStateListOf<TutelaData?>() }
     val tutelaPoint = remember { mutableStateOf<Point?>(null) }
-    val warningIdCounter = remember { mutableIntStateOf(1) }
 
-    // Estado permisos
+    // Gestión Permisos ============================================================================
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -182,13 +179,6 @@ fun MapScreen() {
         }
     )
 
-    // Si no tiene permisos → pedirlos
-    LaunchedEffect(Unit) {
-        if (!hasLocationPermission) {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-    }
-
     // Si no hay permisos, mostramos aviso y no cargamos el mapa
     if (!hasLocationPermission) {
         Box(
@@ -203,7 +193,8 @@ fun MapScreen() {
     // WebSocket ===================================================================================
     val remoteUsers = remember { mutableStateMapOf<String, Pair<Point, Double>>() }
     val userSourceRef = remember { mutableStateOf<GeoJsonSource?>(null) }
-
+    val userData by UserPreferences.getUserData(context).collectAsState(initial = emptyMap())
+    var usuario by remember { mutableStateOf("Devil") }
 
     val wsClient = remember {
         WebSocketClient(
@@ -211,7 +202,7 @@ fun MapScreen() {
             userSourceRef = userSourceRef,
             coroutineScope = coroutineScope
         ) { rawMsg ->
-            wsClient?.handleIncomingRawMessage( // 👈 ojo: necesitas la instancia
+            wsClient?.handleIncomingRawMessage(
                 rawMsg = rawMsg,
                 pointAnnotationManager = pointAnnotationManager.value,
                 markerList = markerList,
@@ -230,18 +221,14 @@ fun MapScreen() {
             )
         }
     }.also {
-        WebSocketHolder.wsClient = it
+        wsClient = it
     }
-
-    val userData by UserPreferences.getUserData(context).collectAsState(initial = emptyMap())
-    var usuario by remember { mutableStateOf("Anon") }
-    val servidor = userData["servidor"] ?: "192.168.1.100"
     // Fin Variables ===============================================================================
 
     // Contenedor Principal ========================================================================
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // Vista Mapa ==================================================================================
+    // Vista Mapa ==================================================================================
         AndroidView(
             factory = { ctx ->
                 MapView(ctx).apply {
@@ -250,7 +237,7 @@ fun MapScreen() {
                     scalebar.enabled = false
                     attribution.enabled = false
 
-                    // Configuración inicial del puck
+                    // Configuración inicial de la flecha
                     location.updateSettings {
                         enabled = true
                         pulsingEnabled = true
@@ -278,11 +265,11 @@ fun MapScreen() {
             }
         )
 
-// Referencia Mapa =============================================================================
+// Referencia Mapa =================================================================================
         mapViewRef.value?.let { mapView ->
 
-// Componentes =================================================================================
-// Brújula  ====================================================================================
+// Componentes =====================================================================================
+// Brújula  ========================================================================================
             CustomCompass(
                 context = context,
                 mapView = mapView,
@@ -292,7 +279,7 @@ fun MapScreen() {
                     .padding(10.dp)
             )
 
-// Pantalla Introducción Coordenadas ===========================================================
+// Pantalla Introducción Coordenadas ===============================================================
             CoordinateInputPanel(
                 usuario = usuario,
                 currentLocation = currentLocation,
@@ -301,14 +288,13 @@ fun MapScreen() {
                 mapView = mapView,
                 modifier = Modifier.align(Alignment.Center),
                 marca = defaultMarkerBitmap,
-                markerIdCounter = markerIdCounter,
                 pointAnnotationManager = pointAnnotationManager.value!!,
                 markerList = markerList,
                 onMarkerClicked = { clicked -> selectedMarker.value = clicked }
 
             )
 
-// Caja Coordenadas ============================================================================
+// Caja Coordenadas ================================================================================
             if (isUTMVisible.value) {
                 UTMCoordinateBox(
                     usuario = usuario,
@@ -317,13 +303,14 @@ fun MapScreen() {
                 )
             }
 
-// Distancia Entre Puntos (Marcadores) =========================================================
+// Distancia Entre Puntos ==========================================================================
             if (measuringMarker.value != null && currentLocation.value != null) {
-                // Ubicación del dispositivo (Usuario)
+                // Ubicación del dispositivo
                 val userPoint = Point.fromLngLat(
                     currentLocation.value!!.longitude(),
                     currentLocation.value!!.latitude()
                 )
+
                 // Ubicación del marcador
                 val markerPoint = measuringMarker.value!!
 
@@ -352,11 +339,10 @@ fun MapScreen() {
                     isTutelaMode = isTutelaMode,
                     isPickingLocalizacion = isPickingLocation,
 
-                    )
-
+                )
             }
 
-// Menú/Informe Marcador Seleccionado ==========================================================
+// Menú/Informe Marcador Seleccionado ==============================================================
             selectedMarker.value?.let { marker ->
                 val markerData = markerList.find { it.point == marker.point }
                 if (markerData != null) {
@@ -378,8 +364,9 @@ fun MapScreen() {
                             isEditingMarker = isEditingMarker,
                             polylineManager = polylineManager,
 
-                            )
-                    } else if (markerData.type == MarkerType.MEDEVAC &&
+                        )
+                    } else if (
+                        markerData.type == MarkerType.MEDEVAC &&
                         markerData.medevac != null
                     ) {
                         cameraMove(mapView, markerData.point)
@@ -387,8 +374,9 @@ fun MapScreen() {
                             medevac = markerData.medevac,
                             onDismiss = { selectedMarker.value = null },
 
-                            )
-                    } else if (markerData.type == MarkerType.TUTELA &&
+                        )
+                    } else if (
+                        markerData.type == MarkerType.TUTELA &&
                         markerData.tutela != null
                     ) {
                         cameraMove(mapView, markerData.point)
@@ -401,7 +389,7 @@ fun MapScreen() {
                 }
             }
 
-// ToolBar Superior ============================================================================
+// ToolBar Superior ================================================================================
             Column(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -426,9 +414,9 @@ fun MapScreen() {
 
             }
 
-// Menú Desplegable ============================================================================
+// Menú Desplegable ================================================================================
             pointAnnotationManager.value?.let { manager ->
-                val activity = LocalActivity.current as? Activity
+                val activity = LocalActivity.current //as? Activity
 
                 BottomPanelMenu(
                     isVisible = isMenuOpen.value,
@@ -443,7 +431,7 @@ fun MapScreen() {
                     onDismissRequest = { isMenuOpen.value = false },
                     onOptionSelected = { selected ->
 
-                        // Manejo de opciones especificas
+                        // Manejo de opciones específicas
                         when (selected) {
 
                             "Ir" -> {
@@ -513,6 +501,7 @@ fun MapScreen() {
                     annotationManager = pointAnnotationManager.value!!,
                 )
 
+                // Ventana de confirmación de cerrar aplicación
                 if (showExitDialog) {
                     AlertDialog(
                         onDismissRequest = { showExitDialog = false },
@@ -535,6 +524,7 @@ fun MapScreen() {
                     )
                 }
 
+                // Guía de usuario
                 if (showUserGuide) {
                     UserGuideScreen(
                         onDismissRequest = {
@@ -542,11 +532,10 @@ fun MapScreen() {
                         }
                     )
                 }
-
             }
 
 
-// Modo Editar Marcador ========================================================================
+// Modo Editar Marcador ============================================================================
             if (isEditingMarker.value != null) {
                 isPlacingMarker.value = true
                 MarkerPicker(
@@ -591,7 +580,7 @@ fun MapScreen() {
 
             }
 
-// Formulario Medevac ==========================================================================
+// Formulario Medevac ==============================================================================
             if (isMedevacFormOpen.value && medevacPoint.value != null) {
                 MedevacFormPanel(
                     point = medevacPoint.value!!,
@@ -607,7 +596,6 @@ fun MapScreen() {
                                 id = markerList.size + 1,
                                 currentLocation = currentLocation,
                                 markerList = markerList,
-                                isMedevacMode = isMedevacFormOpen,
                                 onMarkerClicked = { clicked -> selectedMarker.value = clicked },
                                 medevacList = medevacList,
                                 medevacData = medevacData,
@@ -656,13 +644,13 @@ fun MapScreen() {
 
             }
 
-// Formulario Tutela ===========================================================================
+// Formulario Tutela ===============================================================================
             if (isTutelaFormOpen.value && tutelaPoint.value != null) {
                 TutelaFormPanel(
                     puestoPoint = tutelaPoint.value!!,
                     onDismissRequest = {
                         isTutelaFormOpen.value = false
-                        locationPoint.value = null  // 👈 resetear al cancelar
+                        locationPoint.value = null
                     },
                     onSubmit = { tutelaData ->
                         val mgr = pointAnnotationManager.value ?: return@TutelaFormPanel
@@ -677,15 +665,12 @@ fun MapScreen() {
                                 point = tutelaPoint.value!!,
                                 id = markerList.size +1,
                                 markerList = markerList,
-                                isTutelaMode = isTutelaFormOpen,
                                 onMarkerClicked = { clicked -> selectedMarker.value = clicked },
                                 tutelaList = tutelaList,
                                 tutelaData = tutelaData,
                                 currentLocation = currentLocation,
                                 usuario = usuario
                             )
-
-                            val aux = if (tutelaList.isEmpty()) tutelaList.size+1 else ((tutelaList.size)/2)
 
                             markerList.add(
                                 MarkerData(
@@ -732,7 +717,6 @@ fun MapScreen() {
                                     id = markerList.size +1,
                                     currentLocation = currentLocation,
                                     markerList = markerList,
-                                    isTutelaMode = isTutelaFormOpen,
                                     onMarkerClicked = { clicked -> selectedMarker.value = clicked },
                                     tutelaList = tutelaList,
                                     tutelaData = updatedTutela,
@@ -744,7 +728,7 @@ fun MapScreen() {
                                         id = markerList.size +1,
                                         name = "Observación ${(tutelaList.size)/2}",
                                         createdBy = "Tutela ${(tutelaList.size)/2} -" +
-                                                " ${usuario}",
+                                                " $usuario",
                                         distance = tutelaList.last()?.distancia,
                                         icon = warningIcon,
                                         point = loc,
@@ -757,7 +741,7 @@ fun MapScreen() {
                                     id = markerList.size + 1,
                                     name = "Observación ${(tutelaList.size)/2}",
                                     createdBy = "Tutela ${(tutelaList.size)/2} -" +
-                                            " ${usuario}",
+                                            " $usuario",
                                     distance = tutelaList.last()?.distancia,
                                     point = loc,
                                     type = MarkerType.TUTELA,
@@ -790,7 +774,7 @@ fun MapScreen() {
             }
 
 
-// Cancelar Colocación Marcador ================================================================
+// Cancelar Colocación Marcador ====================================================================
             if (
                 isPlacingMarker.value ||
                 isEditingMarker.value != null ||
@@ -808,7 +792,7 @@ fun MapScreen() {
                         isMedevacMode.value = false
                         isTutelaMode.value = false
                         isPickingLocation.value = false
-                        // limpiar línea de distancia
+                        // Limpiar línea de distancia
                         mapViewRef.value?.annotations?.createPolylineAnnotationManager()
                             ?.deleteAll()
                     },
@@ -821,11 +805,11 @@ fun MapScreen() {
                         .padding(top = 96.dp, end = 29.dp)
                 )
             }
-// FIN Componentes =============================================================================
+// FIN Componentes =================================================================================
 
 
-// Efectos Para Componentes ====================================================================
-// Distancia Entre Puntos (Mapa) ===============================================================
+// Efectos Para Componentes ========================================================================
+// Distancia Entre Puntos (Mapa) ===================================================================
             DisposableEffect(mapViewRef.value, isMeasuringMode.value) {
                 val mapView = mapViewRef.value ?: return@DisposableEffect onDispose {}
                 // Cuando se activa escucha el toque en el mapa
@@ -854,9 +838,9 @@ fun MapScreen() {
 
                     val edit = MarkerEdit(
                         id = markerList.size + 1,
-                        name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
+                        name = markerList.last().name,
                         createdBy = usuario,
-                        distance = markerList.last()?.distance,
+                        distance = markerList.last().distance,
                         point = point,
                         type = MarkerType.NORMAL,
                         icon = icon
@@ -871,7 +855,7 @@ fun MapScreen() {
 
                     wsClient.sendMessage(Gson().toJson(markerMsg))
 
-                    // Inicio de medición medir
+                    // Inicio de medición
                     measuringMarker.value = point
 
                     // Salir del modo medir
@@ -883,7 +867,7 @@ fun MapScreen() {
                 onDispose { mapView.gestures.removeOnMapClickListener(listener) }
             }
 
-// Modo colocar marcador =======================================================================
+// Modo Colocar Marcador ===========================================================================
             DisposableEffect(mapViewRef.value, isPlacingMarker.value) {
                 val mapView = mapViewRef.value ?: return@DisposableEffect onDispose {}
                 val listener = com.mapbox.maps.plugin.gestures.OnMapClickListener { point ->
@@ -911,9 +895,9 @@ fun MapScreen() {
 
                     val edit = MarkerEdit(
                         id = markerList.size + 1,
-                        name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
+                        name = markerList.last().name,
                         createdBy = usuario,
-                        distance = markerList.last()?.distance,
+                        distance = markerList.last().distance,
                         point = point,
                         type = MarkerType.NORMAL,
                         icon = icon
@@ -938,7 +922,7 @@ fun MapScreen() {
                 onDispose { mapView.gestures.removeOnMapClickListener(listener) }
             }
 
-// Modo Medevac ================================================================================
+// Modo Medevac ====================================================================================
             DisposableEffect(mapViewRef.value, isMedevacMode.value) {
                 val mapView = mapViewRef.value ?: return@DisposableEffect onDispose {}
                 val listener = com.mapbox.maps.plugin.gestures.OnMapClickListener { point ->
@@ -959,7 +943,7 @@ fun MapScreen() {
                 onDispose { mapView.gestures.removeOnMapClickListener(listener) }
             }
 
-// Modo Tutela Puesto Observación ==============================================================
+// Modo Tutela Puesto Observación ==================================================================
             DisposableEffect(mapViewRef.value, isTutelaMode.value) {
                 val mapView = mapViewRef.value ?: return@DisposableEffect onDispose {}
                 val listener = com.mapbox.maps.plugin.gestures.OnMapClickListener { point ->
@@ -980,8 +964,7 @@ fun MapScreen() {
                 onDispose { mapView.gestures.removeOnMapClickListener(listener) }
             }
 
-// Modo Tutela Punto Observado =================================================================
-
+// Modo Tutela Punto Observado =====================================================================
             DisposableEffect(mapViewRef.value, isPickingLocation.value) {
                 val mapView = mapViewRef.value ?: return@DisposableEffect onDispose {}
                 val listener = com.mapbox.maps.plugin.gestures.OnMapClickListener { point ->
@@ -1002,40 +985,49 @@ fun MapScreen() {
                 if (isPickingLocation.value) mapView.gestures.addOnMapClickListener(listener)
                 onDispose { mapView.gestures.removeOnMapClickListener(listener) }
             }
-// FIN Efectos Para Componentes ================================================================
+// FIN Efectos Para Componentes ====================================================================
 
         }
-// FIN Referencia al mapa ======================================================================
+// FIN Referencia Mapa =============================================================================
 
     }
-// FIN Contenedor Principal ====================================================================
+// FIN Contenedor Principal ========================================================================
 
-// Efectos =====================================================================================
+// Efectos =========================================================================================
+    // Pedir permisos de ubicación
+    LaunchedEffect(Unit) {
+        if (!hasLocationPermission) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    // Comprobar usuario
     LaunchedEffect(userData) {
         userData["indicativo"]?.let {
             usuario = it
         }
     }
-// Retraso de aparición del cajón de coordenadas
+
+    // Retraso de aparición del cajón de coordenadas
     LaunchedEffect(isMenuOpen.value) {
         if (isMenuOpen.value) {
             delay(50)
             isCoordOpen.value = false
             isUTMVisible.value = false
         } else {
-            delay(120) // ⏳ Retardo de 300 ms antes de reaparecer
+            delay(120)
             isUTMVisible.value = true
         }
     }
 
-// Actualización de posición
+    // Actualización de posición
     LaunchedEffect(Unit) {
         locationUpdatesFlow(context).collect { loc ->
             if (loc != null) {
                 val point = Point.fromLngLat(loc.longitude, loc.latitude)
                 currentLocation.value = point
 
-                // 🔹 Enviar posición por WebSocket en cada actualización
+                // Enviar posición por WebSocket en cada actualización
                 val msg = PositionMessage(
                     type = "position",
                     user = usuario,
@@ -1045,11 +1037,12 @@ fun MapScreen() {
                 wsClient.sendMessage(Gson().toJson(msg))
 
                 if (!hasLocation.value) {
-                    hasLocation.value = true   // 👉 primera vez que tenemos ubicación
+                    hasLocation.value = true
                 }
 
                 if (isFollowingLocation.value) {
                     val currentZoom = mapViewRef.value?.mapboxMap?.cameraState?.zoom ?: 16.0
+
                     mapViewRef.value?.mapboxMap?.easeTo(
                         CameraOptions.Builder()
                             .center(point)
@@ -1059,6 +1052,7 @@ fun MapScreen() {
                             duration(500)
                         }
                     )
+
                     mapViewRef.value?.location?.updateSettings {
                         enabled = true
                         pulsingEnabled = true
@@ -1070,14 +1064,14 @@ fun MapScreen() {
         }
     }
 
-// Mantiene la orientación del dispositivo
+    // Mantiene la orientación del dispositivo
     LaunchedEffect(Unit) {
         context.orientationFlow().collect { azimuth ->
             heading.floatValue = azimuth
         }
     }
 
-// Ocultar barra de estado
+    // Ocultar  la barra de estado
     LaunchedEffect(Unit) {
         val window = (context as? Activity)?.window ?: return@LaunchedEffect
         val controller = WindowInsetsControllerCompat(window, view)
@@ -1088,7 +1082,6 @@ fun MapScreen() {
                     WindowInsetsCompat.Type.systemBars()
         )
 
-    // Para que vuelva con gesto y no sea permanente
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
@@ -1122,15 +1115,15 @@ fun MapScreen() {
 
                 wsClient.connect(serverIp, 8080, usuario)
 
-                // Reset trigger
                 WebSocketHolder.shouldReconnect.value = false
+
             } else if (!WebSocketHolder.isConnected.value) {
-                // primera conexión
                 wsClient.connect(serverIp, 8080, usuario)
             }
         }
     }
 
+    // Crea el wsClient
     LaunchedEffect(Unit) {
         WebSocketHolder.wsClient = wsClient
     }
@@ -1144,5 +1137,4 @@ fun MapScreen() {
             MapStyleConfig.applyRemoteUsersStyle(style, userSourceRef, navBitmap)
         }
     }
-
 }

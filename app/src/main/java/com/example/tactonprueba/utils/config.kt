@@ -2,7 +2,6 @@ package com.example.tactonprueba.utils
 
 import android.app.Activity
 import android.widget.Toast
-import androidx.compose.runtime.Composable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,11 +18,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -34,6 +36,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,26 +44,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Circle
-import androidx.compose.material3.*
 import com.example.tactonprueba.network.*
 import com.example.tactonprueba.network.WebSocketHolder.wsClient
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-
+// Componentes =====================================================================================
+// Configuración Usuario
 @Composable
 fun UserConfigurationScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Datos guardados en memoria
     val userData by UserPreferences.getUserData(context).collectAsState(initial = emptyMap())
-
     var indicativo by remember { mutableStateOf(userData["indicativo"] ?: "") }
     var cia by remember { mutableStateOf(userData["cia"] ?: "") }
     var scc by remember { mutableStateOf(userData["scc"] ?: "") }
@@ -73,11 +70,11 @@ fun UserConfigurationScreen() {
         "Alférez", "Teniente", "Capitán", "Comandante", "Teniente Coronel", "Coronel"
     )
 
-    // Scroll general
     val scrollState = rememberScrollState()
     var expanded by remember { mutableStateOf(false) }
     var isEditable by remember { mutableStateOf(false) }
 
+    // Valores por defectos
     LaunchedEffect(userData) {
         indicativo = userData["indicativo"] ?: ""
         cia = userData["cia"] ?: ""
@@ -93,7 +90,6 @@ fun UserConfigurationScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 🔹 Título + botón de bloqueo
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 0.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -117,9 +113,14 @@ fun UserConfigurationScreen() {
 
         }
 
-        // Campo helper
+        // Estilo de las cajas de textos
         @Composable
-        fun InputRow(label: String, value: String, onValueChange: (String) -> Unit, enabled: Boolean) {
+        fun InputRow(
+            label: String,
+            value: String,
+            onValueChange: (String) -> Unit,
+            enabled: Boolean
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -131,7 +132,8 @@ fun UserConfigurationScreen() {
                         value = value,
                         onValueChange = onValueChange,
                         singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, color = Color.Black),
+                        textStyle =
+                            LocalTextStyle.current.copy(fontSize = 14.sp, color = Color.Black),
                         modifier = Modifier
                             .weight(1f)
                             .height(40.dp)
@@ -167,7 +169,6 @@ fun UserConfigurationScreen() {
             InputRow("Scc", scc, { scc = it }, enabled = isEditable)
             InputRow("Pn", pn, { pn = it }, enabled = isEditable)
 
-            // Dropdown empleo estilo filtro de marcadores
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -209,7 +210,7 @@ fun UserConfigurationScreen() {
                                     empleo = option
                                     expanded = false
                                 },
-                                modifier = Modifier.height(36.dp) // 👈 más pequeño
+                                modifier = Modifier.height(36.dp)
                             )
                         }
                     }
@@ -222,7 +223,7 @@ fun UserConfigurationScreen() {
                 onClick = {
                     scope.launch {
                         UserPreferences.saveUserData(context, indicativo, cia, scc, pn, empleo)
-                        isEditable = false // se bloquea al guardar
+                        isEditable = false
                         Toast.makeText(
                             context,
                             "Ajustes guardados correctamente",
@@ -243,27 +244,23 @@ fun UserConfigurationScreen() {
     }
 }
 
+// Configuración Servidor Y Lista Conectados
 @Composable
 fun ServerConfigurationScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
-    // Estado de la IP introducida
     var serverIp by remember { mutableStateOf("") }
-
-    // Estado de usuarios conectados (según WebSocketClient → remoteUsers)
-    val connectedUsers = remember { mutableStateListOf<String>() }
-
-    // Estado de conexión (verde/rojo)
-    val isConnected = WebSocketHolder.isConnected
-
-    // Recoger el indicativo del usuario (guardado en UserPreferences)
     val userData by UserPreferences.getUserData(context).collectAsState(initial = emptyMap())
     val username = userData["indicativo"] ?: "Anon"
-
-    // Scroll general por si se llena de usuarios
     val scrollState = rememberScrollState()
 
+    // Usuarios conectados
+    val connectedUsers = remember { mutableStateListOf<String>() }
+
+    // Estado de conexión
+    val isConnected = WebSocketHolder.isConnected
+
+    // Guardado de ip del servidor
     LaunchedEffect(userData) {
        serverIp = userData["servidor"] ?: ""
     }
@@ -284,7 +281,6 @@ fun ServerConfigurationScreen() {
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 
-        // Caja para la IP
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
@@ -303,7 +299,6 @@ fun ServerConfigurationScreen() {
             )
         }
 
-        // Botones conectar / desconectar
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
@@ -322,17 +317,28 @@ fun ServerConfigurationScreen() {
                                 serverIp
                             )
 
-                            // 👇 dispara el trigger para que MapScreen reconecte
-                            WebSocketHolder.wsClient?.connect(serverIp,8080,username)
+                            wsClient?.connect(serverIp,8080,username)
 
-                            Toast.makeText(context, "Conectando a $serverIp...", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Conectando a $serverIp...",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
                         } else {
-                            Toast.makeText(context, "Introduce una IP válida", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Introduce una IP válida",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Black,
+                    contentColor = Color.White
+                )
             ) {
                 Text("Conectar")
             }
@@ -340,13 +346,19 @@ fun ServerConfigurationScreen() {
             Button(
                 onClick = {
                     scope.launch {
-                        //WebSocketHolder.shouldReconnect.value = false
-                        WebSocketHolder.wsClient?.close()
-                        Toast.makeText(context, "Desconectado del servidor", Toast.LENGTH_SHORT).show()
+                        wsClient?.close()
+                        Toast.makeText(
+                            context,
+                            "Desconectado del servidor",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red, contentColor = Color.White)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Red,
+                    contentColor = Color.White
+                )
             ) {
                 Text("Desconectar")
             }
@@ -359,7 +371,9 @@ fun ServerConfigurationScreen() {
                     .size(12.dp)
                     .background(if (isConnected.value) Color.Green else Color.Red, CircleShape)
             )
+
             Spacer(Modifier.width(8.dp))
+
             Text(
                 if (isConnected.value) "Conectado" else "Desconectado",
                 color = Color.Black
@@ -387,9 +401,8 @@ fun ServerConfigurationScreen() {
             }
         }
 
-        // 🔹 Actualizar lista cuando cambien los usuarios
-        LaunchedEffect(WebSocketHolder.wsClient, isConnected.value) {
-            WebSocketHolder.wsClient?.let { ws ->
+        LaunchedEffect(wsClient, isConnected.value) {
+            wsClient?.let { ws ->
                 connectedUsers.clear()
                 connectedUsers.addAll(ws.getConnectedUsers())
             }
@@ -399,14 +412,13 @@ fun ServerConfigurationScreen() {
 
 
 
-
+// Confirmación Cerrar Aplicación
 @Composable
 fun DoubleBackToExitApp() {
     val context = LocalContext.current
     val activity = context as? Activity
     var backPressedOnce by remember { mutableStateOf(false) }
 
-    // Escucha del botón atrás
     BackHandler {
         if (backPressedOnce) {
             wsClient?.close()
@@ -417,7 +429,6 @@ fun DoubleBackToExitApp() {
         }
     }
 
-    // Resetear el estado tras 2 segundos
     LaunchedEffect(backPressedOnce) {
         if (backPressedOnce) {
             delay(2000)

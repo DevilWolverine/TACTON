@@ -157,9 +157,10 @@ fun defaultMarkerOptions(): List<MarkerOption> = listOf(
     MarkerOption("52", "A/GT En", R.drawable._40_agtac_en),
 
 )
+// FIN Modelo De Datos =============================================================================
 
 // Componentes =====================================================================================
-// Contenedor Marcador ===============================================================================
+// Contenedor Marcador =============================================================================
 @Composable
 private fun MarkerCard(option: MarkerOption, onClick: (MarkerOption) -> Unit) {
     Card(
@@ -362,9 +363,9 @@ fun MarkerMenu(
         Point.fromLngLat(selectedMarker.point.longitude(), selectedMarker.point.latitude())
 
     val utm = latLonToUTM(point.latitude(), point.longitude())
-    val screenCoords = remember(selectedMarker) {
+    /*val screenCoords = remember(selectedMarker) {
         mapView.mapboxMap.pixelForCoordinate(selectedMarker.point)
-    }
+    }*/
 
     val distance = userLocation?.let {
         TurfMeasurement.distance(it, point, TurfConstants.UNIT_METERS)
@@ -395,8 +396,8 @@ fun MarkerMenu(
         ) {
             Card(
                 modifier = Modifier
-                    .align(Alignment.Center)     // 👈 centrado en pantalla
-                    .padding(top = 200.dp)       // 👈 desplazado hacia abajo
+                    .align(Alignment.Center)
+                    .padding(top = 200.dp)
                     .clickable(enabled = false) {}
                     .width(160.dp),
                 shape = RoundedCornerShape(12.dp),
@@ -497,7 +498,7 @@ fun MarkerMenu(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(12.dp),
-                    owner = usuario!!.createdBy, // 👈 owner Cambiar y reutilizar
+                    owner = usuario!!.createdBy,
                     markerName = markerName,
                     distance = distance,
                     coords = formatCoords(),
@@ -637,11 +638,9 @@ fun placeMarker(
     currentLocation: MutableState<Point?>,
     option: MarkerOption = defaultMarkerOptions()[0],
     markerList: SnapshotStateList<MarkerData>,
-    isMedevacMode: MutableState<Boolean> = mutableStateOf(false),
     onMarkerClicked: (annotation: PointAnnotation) -> Unit,
     medevacList: SnapshotStateList<MedevacData?> = mutableStateListOf(),
     medevacData: MedevacData? = null,
-    isTutelaMode: MutableState<Boolean> = mutableStateOf(false),
     tutelaList: SnapshotStateList<TutelaData?> = mutableStateListOf(),
     tutelaData: TutelaData? = null,
     usuario: String
@@ -712,15 +711,15 @@ private fun saveMarker(
     if (medevacData != null) {
 
         val medevacData = MedevacData(
-            line1 = medevacData?.line1,
-            line2 = medevacData?.line2.toString(),
-            line3 = medevacData?.line3.toString(),
-            line4 = medevacData?.line4.toString(),
-            line5 = medevacData?.line5.toString(),
-            line6 = medevacData?.line6.toString(),
-            line7 = medevacData?.line7.toString(),
-            line8 = medevacData?.line8.toString(),
-            line9 = medevacData?.line9.toString(),
+            line1 = medevacData.line1,
+            line2 = medevacData.line2.toString(),
+            line3 = medevacData.line3.toString(),
+            line4 = medevacData.line4.toString(),
+            line5 = medevacData.line5.toString(),
+            line6 = medevacData.line6.toString(),
+            line7 = medevacData.line7.toString(),
+            line8 = medevacData.line8.toString(),
+            line9 = medevacData.line9.toString(),
             distancia = distance
         )
 
@@ -730,16 +729,16 @@ private fun saveMarker(
 
         val tutelaAux = tutelaList.lastOrNull()
 
-        if (tutelaAux == null || tutelaAux.puesto != tutelaData?.puesto )  {
+        if (tutelaAux == null || tutelaAux.puesto != tutelaData.puesto )  {
 
             val tutelaData = TutelaData(
-                tiempo = tutelaData?.tiempo.toString(),
-                unidad = tutelaData?.unidad.toString(),
-                tamanio = tutelaData?.tamanio.toString(),
-                equipo = tutelaData?.equipo.toString(),
-                localizacion = tutelaData?.localizacion,
-                actitud = tutelaData?.actitud.toString(),
-                puesto = tutelaData?.puesto,
+                tiempo = tutelaData.tiempo.toString(),
+                unidad = tutelaData.unidad.toString(),
+                tamanio = tutelaData.tamanio.toString(),
+                equipo = tutelaData.equipo.toString(),
+                localizacion = tutelaData.localizacion,
+                actitud = tutelaData.actitud.toString(),
+                puesto = tutelaData.puesto,
                 distancia = distance,
                 tipo = TutelaTipo.REPORT
             )
@@ -749,13 +748,13 @@ private fun saveMarker(
         } else {
 
             val tutela = TutelaData(
-                tiempo = tutelaData?.tiempo.toString(),
-                unidad = tutelaData?.unidad.toString(),
-                tamanio = tutelaData?.tamanio.toString(),
-                equipo = tutelaData?.equipo.toString(),
-                localizacion = tutelaData?.puesto,
-                actitud = tutelaData?.actitud.toString(),
-                puesto = tutelaData?.localizacion,
+                tiempo = tutelaData.tiempo.toString(),
+                unidad = tutelaData.unidad.toString(),
+                tamanio = tutelaData.tamanio.toString(),
+                equipo = tutelaData.equipo.toString(),
+                localizacion = tutelaData.puesto,
+                actitud = tutelaData.actitud.toString(),
+                puesto = tutelaData.localizacion,
                 distancia = distance,
                 tipo = TutelaTipo.OBJETIVO
             )

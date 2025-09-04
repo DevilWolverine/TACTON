@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">TACTON Prueba</string>
+    <string name="app_name">TACTON</string>
     <string name="mapbox_access_token">sk.eyJ1IjoiZGV2aWx3b2x2ZXJpbmUiLCJhIjoiY21kY3g2MjlkMDFzODJucjEyMXNxcnhpcSJ9.rUwPiMD-PmDmYv1kBs-AFg</string>
 </resources>

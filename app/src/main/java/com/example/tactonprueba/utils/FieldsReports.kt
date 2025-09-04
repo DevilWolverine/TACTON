@@ -112,7 +112,7 @@ fun TutelaReportPanel(
 
                     when (selectedMarker.point) {
                         tutela.puesto -> {
-                            // Marcador de puesto (aliado)
+                            // Marcador de puesto
                             Icon(
                                 Icons.Default.Style,
                                 contentDescription = "Tutela Icon",
@@ -129,7 +129,7 @@ fun TutelaReportPanel(
                         }
 
                         tutela.localizacion -> {
-                            // Marcador de localización (enemigo/secundario)
+                            // Marcador de localización
                             Icon(
                                 Icons.Default.MyLocation,
                                 contentDescription = "Objetivo Icon",
@@ -161,7 +161,8 @@ fun TutelaReportPanel(
                             )
 
                             Text(
-                                "${"%.5f".format(tutela.puesto.latitude())}, ${"%.5f".format(tutela.puesto.longitude())}",
+                                "${"%.5f".format(tutela.puesto.latitude())}, " +
+                                        "${"%.5f".format(tutela.puesto.longitude())}",
                                 color = Color.LightGray,
                                 fontSize = 14.sp
                             )
@@ -222,7 +223,6 @@ fun TutelaReportPanel(
                     }
 
                     tutela.localizacion -> {
-                        // Marcador de localización (enemigo/secundario)
                         LineItem(
                             "5. Siendo Observado desde: " +
                                     "\n${"%.5f".format(tutela.puesto?.latitude())}," +
@@ -297,7 +297,8 @@ fun TutelaFormPanel(
                     )
 
                     Text(
-                        "Puesto: ${"%.5f".format(puestoPoint.latitude())}, ${"%.5f".format(puestoPoint.longitude())}",
+                        "Puesto: ${"%.5f".format(puestoPoint.latitude())}, " +
+                                "${"%.5f".format(puestoPoint.longitude())}",
                         color = Color.LightGray
                     )
 
@@ -858,7 +859,7 @@ fun dropdownLine(
 
 }
 
-// Botón desplegable ============================================================================
+// Botón desplegable ===============================================================================
 @Composable
 fun dropdownInline(
     opciones: List<String>,
@@ -979,5 +980,4 @@ fun StyledTextField(
             shouldSelectAll = false
         }
     }
-
 }

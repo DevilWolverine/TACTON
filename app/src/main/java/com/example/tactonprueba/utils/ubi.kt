@@ -86,7 +86,6 @@ import com.example.tactonprueba.R
 import com.example.tactonprueba.network.MarkerEdit
 import com.example.tactonprueba.network.MarkerMessage
 import com.example.tactonprueba.network.bitmapToBase64
-import com.example.tactonprueba.network.WebSocketClient
 import com.example.tactonprueba.network.WebSocketHolder
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -105,8 +104,6 @@ import com.mapbox.maps.plugin.delegates.listeners.OnCameraChangeListener
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.DefaultLocationProvider
 import com.mapbox.maps.plugin.locationcomponent.location
-import com.mapbox.turf.TurfConstants
-import com.mapbox.turf.TurfMeasurement
 import kotlin.math.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -174,7 +171,6 @@ fun CoordinateInputPanel(
     mapView: MapView,
     modifier: Modifier = Modifier,
     marca: Bitmap,
-    markerIdCounter: MutableState<Int>,
     pointAnnotationManager: PointAnnotationManager,
     onMarkerClicked: (PointAnnotation) -> Unit,
     markerList: SnapshotStateList<MarkerData>,
@@ -838,9 +834,9 @@ fun goToUTM(
 
     val edit = MarkerEdit(
         id = markerList.size + 1,
-        name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
+        name = markerList.last().name,
         createdBy = usuario,
-        distance = markerList.last()?.distance,
+        distance = markerList.last().distance,
         point = point,
         type = MarkerType.NORMAL,
         icon = icon
@@ -874,12 +870,6 @@ fun goToLatLon(
     val point = Point.fromLngLat(longitude, latitude)
     cameraMove(mapView, point)
 
-    var distance = TurfMeasurement.distance(
-        currentLocation.value!!,
-        point,
-        TurfConstants.UNIT_METERS
-    )
-
     placeMarker(
         mgr = pointAnnotationManager,
         bmp = defaultMarkerBitmap,
@@ -895,9 +885,9 @@ fun goToLatLon(
 
     val edit = MarkerEdit(
         id = markerList.size + 1,
-        name = markerList.last()?.name ?: "Marcador ${markerList.size + 1}",
+        name = markerList.last().name,
         createdBy = usuario,
-        distance = markerList.last()?.distance,
+        distance = markerList.last().distance,
         point = point,
         type = MarkerType.NORMAL,
         icon = icon
@@ -912,7 +902,6 @@ fun goToLatLon(
         )
 
     WebSocketHolder.wsClient?.sendMessage(Gson().toJson(markerMsg))
-
 
 }
 
