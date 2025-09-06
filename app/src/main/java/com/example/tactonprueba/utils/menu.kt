@@ -314,7 +314,7 @@ private fun RenderMainMenu(
         item { MenuCard(Icons.Default.Style,"Tutela") { onSelect("Tutela") } }
         item { MenuCard(Icons.Default.Construction,"Opciones") { onSelect("Opciones") } }
         item { MenuCard(Icons.Default.AdsClick,"Guía de usuario") { onOptionSelected("Guia") } }
-        item { MenuCard(Icons.Default.Cancel,"Salir") { onOptionSelected("Salir") } }
+        item { MenuCard(Icons.Default.Cancel,"Salir") { onOptionSelected("CloseApp") } }
     }
 }
 

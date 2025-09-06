@@ -99,8 +99,8 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 @Composable
 fun MapScreen() {
-    // Variables ===================================================================================
-    // Mapeado =====================================================================================
+// Variables =======================================================================================
+// Mapeado =========================================================================================
     val coroutineScope = rememberCoroutineScope()
     val currentLocation = remember { mutableStateOf<Point?>(null) }
     val currentStyle = remember { mutableStateOf(MapInit.NORMAL) }
@@ -108,7 +108,7 @@ fun MapScreen() {
     val locationPoint = remember { mutableStateOf<Point?>(null) }
     val mapViewRef = remember { mutableStateOf<MapView?>(null) }
 
-    // Dibujar en mapa =============================================================================
+// Dibujar en mapa =================================================================================
     val context = LocalContext.current
     val density = LocalDensity.current
     val iconSizePx = with(density) { 48.dp.toPx().toInt() }
@@ -120,7 +120,7 @@ fun MapScreen() {
     val view = LocalView.current
     var polylineManager = remember { mutableStateOf<PolylineAnnotationManager?>(null) }
 
-    // Iconos por defecto ==========================================================================
+// Iconos por defecto ==============================================================================
     val defaultMarkerBitmap = AppCompatResources.getDrawable(context, R.drawable.pin)
         ?.toBitmap(width = iconSizePx, height = iconSizePx)!!
     val navBitmap = AppCompatResources.getDrawable(context, R.drawable.nav)
@@ -132,7 +132,7 @@ fun MapScreen() {
     val warningIcon = AppCompatResources.getDrawable(context, R.drawable.warning)
         ?.toBitmap(width = iconSizePx, height = iconSizePx)
 
-    // Estados =====================================================================================
+// Estados =========================================================================================
     val isCenteredMap = remember { mutableStateOf(false) }
     val isCoordOpen = remember { mutableStateOf(false) }
     val isEditingMarker = remember { mutableStateOf<PointAnnotation?>(null) }
@@ -151,8 +151,7 @@ fun MapScreen() {
     var showExitDialog by remember { mutableStateOf(false) }
     var showUserGuide by remember { mutableStateOf(false) }
 
-    // Manejo de listas ============================================================================
-    val markerIdCounter = remember { mutableIntStateOf(1) }
+// Manejo de listas ================================================================================
     val markerList = remember { mutableStateListOf<MarkerData>() }
     val measuringMarker = remember { mutableStateOf<Point?>(null) }
     val measuringTarget = remember { mutableStateOf<PointAnnotation?>(null) }
@@ -161,7 +160,7 @@ fun MapScreen() {
     val tutelaList = remember { mutableStateListOf<TutelaData?>() }
     val tutelaPoint = remember { mutableStateOf<Point?>(null) }
 
-    // Gestión Permisos ============================================================================
+// Gestión Permisos ================================================================================
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -190,7 +189,7 @@ fun MapScreen() {
         return
     }
 
-    // WebSocket ===================================================================================
+// WebSocket =======================================================================================
     val remoteUsers = remember { mutableStateMapOf<String, Pair<Point, Double>>() }
     val userSourceRef = remember { mutableStateOf<GeoJsonSource?>(null) }
     val userData by UserPreferences.getUserData(context).collectAsState(initial = emptyMap())
@@ -223,12 +222,12 @@ fun MapScreen() {
     }.also {
         wsClient = it
     }
-    // Fin Variables ===============================================================================
+// Fin Variables ===================================================================================
 
-    // Contenedor Principal ========================================================================
+// Contenedor Principal ============================================================================
     Box(modifier = Modifier.fillMaxSize()) {
 
-    // Vista Mapa ==================================================================================
+// Vista Mapa ======================================================================================
         AndroidView(
             factory = { ctx ->
                 MapView(ctx).apply {
@@ -474,7 +473,7 @@ fun MapScreen() {
                                 }
                             }
 
-                            "Salir" -> {
+                            "CloseApp" -> {
                                 coroutineScope.launch {
                                     delay(130)
                                     isMenuOpen.value = false

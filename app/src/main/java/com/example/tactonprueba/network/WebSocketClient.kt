@@ -116,7 +116,7 @@ class WebSocketClient(
         config?.sendMessage(helloMsg)
 
         WebSocketHolder.isConnected.value = true
-        Log.d("WebSocketClient", "👋 Usuario $username identificado en $serverIp:$port")
+        Log.d("WebSocketClient", "Usuario $username identificado en $serverIp:$port")
     }
 
     // Enviar un mensaje al servidor.
@@ -329,8 +329,7 @@ class WebSocketClient(
                                         MarkerData(
                                             id = markerList.size.toInt() + 1,
                                             name = "Observación ${(tutelaList.size.toInt())/2}",
-                                            createdBy = "Tutela ${(tutelaList.size.toInt())/2} -" +
-                                                    " ${msg.user}",
+                                            createdBy = msg.marker.createdBy,
                                             icon = warningIcon,
                                             distance = tutelaList.last()?.distancia?.toDouble(),
                                             point = msg.tutela.puesto,
